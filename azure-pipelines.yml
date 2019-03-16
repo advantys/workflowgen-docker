@@ -16,21 +16,7 @@ jobs:
           WFGEN_VERSION: 7.14.5
           WINDOWS_SERVER_VERSION: ltsc2016
     steps:
-      - powershell: |
-          $buildPath = [io.path]::Combine(
-            $env:BUILD_REPOSITORY_LOCALPATH,
-            $env:WFGEN_VERSION_FOLDER,
-            'windows',
-            'windowsservercore-{0}' -f $env:WINDOWS_SERVER_VERSION
-          )
-          $onbuildPath = Join-Path $buildPath 'onbuild'
-          $imageName = 'advantys/workflowgen'
-          $tag = '{0}-{1}' -f $env:WFGEN_VERSION, $env:WINDOWS_SERVER_VERSION
-          $completeTag = '{0}:{1}' -f $imageName, $tag
-          $onbuildTag = '{0}:{1}-onbuild' -f $imageName, $tag
-
-          docker build -t $completeTag $buildPath
-          docker build -t $onbuildTag $onbuildPath
+      - template: scripts/steps/build-images.yml
   - job: Buildltsc2019
     displayName: Build WorkflowGen's Images (ltsc2019)
     pool:
@@ -43,18 +29,4 @@ jobs:
           WFGEN_VERSION: 7.14.5
           WINDOWS_SERVER_VERSION: ltsc2019
     steps:
-      - powershell: |
-          $buildPath = [io.path]::Combine(
-            $env:BUILD_REPOSITORY_LOCALPATH,
-            $env:WFGEN_VERSION_FOLDER,
-            'windows',
-            'windowsservercore-{0}' -f $env:WINDOWS_SERVER_VERSION
-          )
-          $onbuildPath = Join-Path $buildPath 'onbuild'
-          $imageName = 'advantys/workflowgen'
-          $tag = '{0}-{1}' -f $env:WFGEN_VERSION, $env:WINDOWS_SERVER_VERSION
-          $completeTag = '{0}:{1}' -f $imageName, $tag
-          $onbuildTag = '{0}:{1}-onbuild' -f $imageName, $tag
-
-          docker build -t $completeTag $buildPath
-          docker build -t $onbuildTag $onbuildPath
+      - template: scripts/steps/build-images.yml
