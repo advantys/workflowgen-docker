@@ -4,7 +4,7 @@ steps:
       targetType: filePath
       filePath: scripts/build-images.ps1
   - powershell: |
-      docker container ls -a | ForEach-Object { docker container rm -f $_ 2> $null }
+      docker container ls -aq | ForEach-Object { docker container rm -f $_ 2> $null }
       docker images ls -f 'dangling=true' -q `
         '| ForEach-Object { docker images rm -f $_ 2> $null }'
 
