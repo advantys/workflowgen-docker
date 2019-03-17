@@ -28,5 +28,6 @@ jobs:
           WFGEN_VERSION_FOLDER: 7.14
           WFGEN_VERSION: 7.14.5
           WINDOWS_SERVER_VERSION: ltsc2019
+          ADDITIONAL_TAGS: latest, 7, 7.14, 7.14.5
     steps:
       - template: scripts/steps/build-images.yml
