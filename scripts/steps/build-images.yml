@@ -12,4 +12,5 @@ steps:
       docker container ls -aq | ForEach-Object { docker container rm -f $_ 2> $null }
       docker image ls -f 'dangling=true' -q `
         '| ForEach-Object { docker image rm -f $_ 2> $null }'
+    condition: succeededOrFailed()
 
