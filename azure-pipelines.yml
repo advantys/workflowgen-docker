@@ -11,9 +11,9 @@ jobs:
       demands: Container.Windows.Version -equals ltsc2016
     strategy:
       matrix:
-        7.14:
-          WFGEN_VERSION_FOLDER: 7.14
-          WFGEN_VERSION: 7.14.5
+        '7.14':
+          WFGEN_VERSION_FOLDER: '7.14'
+          WFGEN_VERSION: '7.14.5'
           WINDOWS_SERVER_VERSION: ltsc2016
     steps:
       - template: scripts/steps/build-images.yml
@@ -24,9 +24,9 @@ jobs:
       demands: Container.Windows.Version -equals ltsc2019
     strategy:
       matrix:
-        7.14:
-          WFGEN_VERSION_FOLDER: 7.14
-          WFGEN_VERSION: 7.14.5
+        '7.14':
+          WFGEN_VERSION_FOLDER: '7.14'
+          WFGEN_VERSION: '7.14.5'
           WINDOWS_SERVER_VERSION: ltsc2019
           ADDITIONAL_TAGS: latest, 7, 7.14, 7.14.5
     steps:
