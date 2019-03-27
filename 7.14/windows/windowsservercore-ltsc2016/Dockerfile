@@ -1,6 +1,6 @@
 # escape=`
 
-FROM advantys/aspnet-iisnode:4.7.2-node-10.15.2-win-ltsc2016
+FROM advantys/aspnet-iisnode:4.7.2-node-8.15.0-win-ltsc2016
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
 
