@@ -59,7 +59,7 @@ if ($repoHasVersion) {
             Set-Content -Path $_.FullName -Value $content -Encoding UTF8
         }
 
-    $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml
+    $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
     $newJobs = $pipelinesDef.jobs | ForEach-Object {
         $currentMatrix = $_.strategy.matrix[$minorVersion]
         $currentMatrix.WFGEN_VERSION = $ToVersion
