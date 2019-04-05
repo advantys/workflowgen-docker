@@ -1,4 +1,4 @@
-# escape=`
+﻿# escape=`
 
 FROM advantys/aspnet-iisnode:4.7.2-node-8.15.0-win-ltsc2019
 
@@ -6,7 +6,7 @@ SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$Progress
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.14.5/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.14.6/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     Expand-Archive -Path C:\manual.zip -DestinationPath C:\manual; `
@@ -92,7 +92,7 @@ VOLUME [ `
     "C:\\wfgen\\wfapps" `
 ]
 EXPOSE 80 443
-ENV WFGEN_VERSION=7.14.5
+ENV WFGEN_VERSION=7.14.6
 
 COPY .\docker-entrypoint.ps1 `
     .\monitor-services.ps1 `
