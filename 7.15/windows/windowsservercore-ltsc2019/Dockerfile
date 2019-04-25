@@ -95,7 +95,7 @@ VOLUME [ `
 EXPOSE 80 443
 ENV WFGEN_VERSION=7.15.0
 
-COPY .\workflowgen\docker-entrypoint.ps1 `
+COPY .\docker-entrypoint.ps1 `
     .\monitor-services.ps1 `
     .\Utils.psm1 `
     .\Const.psm1 `
