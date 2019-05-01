@@ -2,7 +2,6 @@ trigger:
   branches:
     include:
     - master
-
 jobs:
 - job: Buildltsc2016
   displayName: Build WorkflowGen's Images (ltsc2016)
@@ -15,7 +14,7 @@ jobs:
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2016
         WFGEN_VERSION_FOLDER: "7.14"
-        WFGEN_VERSION: 7.14.6
+        WFGEN_VERSION: 7.14.7
   steps:
   - template: scripts/steps/build-images.yml
   pool:
@@ -33,8 +32,8 @@ jobs:
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.14"
-        WFGEN_VERSION: 7.14.6
-        ADDITIONAL_TAGS: 7.14, 7.14.6
+        WFGEN_VERSION: 7.14.7
+        ADDITIONAL_TAGS: 7.14, 7.14.7
   steps:
   - template: scripts/steps/build-images.yml
   pool:
