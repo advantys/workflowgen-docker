@@ -6,7 +6,7 @@ SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$Progress
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.15.0/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.15.1/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     Expand-Archive -Path C:\manual.zip -DestinationPath C:\manual; `
@@ -93,7 +93,7 @@ VOLUME [ `
     "C:\\wfgen\\wfapps" `
 ]
 EXPOSE 80 443
-ENV WFGEN_VERSION=7.15.0
+ENV WFGEN_VERSION=7.15.1
 
 COPY .\docker-entrypoint.ps1 `
     .\monitor-services.ps1 `
