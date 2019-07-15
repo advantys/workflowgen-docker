@@ -1,34 +1,57 @@
-#requires -Version 5.1
 <#
 .SYNOPSIS
     Contains the definition of the functions that handles authentication setup.
 .NOTES
     File Name: Auth.psm1
 #>
+#requires -Version 5.1
 
 function Remove-AuthenticationModule {
     <#
     .SYNOPSIS
-        Removes an <add> element from the xml tree where its "name" attribute
-        has a specific value.
-    .PARAMETER NameAttributeValue
-        Value of the "name" attribute.
+        Removes an <add> element from the xml tree in the sub-module specified.
+    .PARAMETER ModuleName
+        The name of the module where to remove the authentication module.
     .PARAMETER DocumentPath
         The path to the xml document where to apply the remove.
     #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [ValidateSet("global", "auth", "scim", "hooks", "graphql")]
+        [string]$ModuleName,
+        [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
         [ValidateNotNullOrEmpty()]
         [string]$DocumentPath
     )
     process {
         $document = [xml](Get-Content $DocumentPath)
-        $addNode = $document.SelectSingleNode("//add[@name=""ApplicationSecurityAuthenticationModule""]")
 
-        if ($addNode) {
-            $addNode.ParentNode.RemoveChild($addNode)
-            $document.Save($DocumentPath)
+        if ($ModuleName -eq "global") {
+            if (-not $document.configuration["system.webServer"]) {
+                return
+            }
+
+            $addNode = $document.
+                configuration["system.webServer"].
+                SelectSingleNode("//add[@name=""ApplicationSecurityAuthenticationModule""]")
+
+            if ($addNode) {
+                $addNode.ParentNode.RemoveChild($addNode)
+                $document.Save($DocumentPath)
+            }
+            return
+        }
+
+        $locationNode = $document.SelectSingleNode("//location[@path=""$ModuleName""]")
+
+        if ($locationNode) {
+            $addNode = $locationNode.SelectSingleNode("//add[@name=""ApplicationSecurityAuthenticationModule""]")
+
+            if ($addNode) {
+                $addNode.ParentNode.RemoveChild($addNode)
+                $document.Save($DocumentPath)
+            }
         }
     }
 }
@@ -38,7 +61,9 @@ function Add-AuthenticationModule {
     .SYNOPSIS
         Adds the specified type as the authentication module for IIS.
     .PARAMETER Name
-        The name of the module (Full Type name) to add.
+        The name of the .Net module (Full Type name) to add.
+    .PARAMETER ModuleName
+        The name of the sub-module where to apply the change.
     .PARAMETER DocumentPath
         The path to the xml document where to put the authentication module
         declaration.
@@ -49,41 +74,47 @@ function Add-AuthenticationModule {
         [ValidateNotNullOrEmpty()]
         [string]$Name,
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [ValidateSet("global", "auth", "scim", "hooks", "graphql")]
+        [string]$ModuleName,
+        [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
         [ValidateNotNullOrEmpty()]
         [string]$DocumentPath
     )
 
     process {
         $document = [xml](Get-Content $DocumentPath)
-        $authenticationModuleNode = $document.SelectSingleNode("//add[@name=""ApplicationSecurityAuthenticationModule""]")
+        [System.Xml.XmlNode]$node
+
+        if ($ModuleName -eq "global") {
+            if (-not $document.configuration["system.webServer"]) {
+                $document.configuration.AppendChild($document.CreateElement("system.webServer"))
+            }
+
+            $node = $document.configuration
+        } else {
+            $node = $document.SelectSingleNode("//location[@path=""$ModuleName""]")
+        }
+
+        $node = if ($node) { $node["system.webServer"] } else { return }
+        $authenticationModuleNode = $node.SelectSingleNode("//add[@name=""ApplicationSecurityAuthenticationModule""]")
 
         if ($authenticationModuleNode) {
             $authenticationModuleNode.Attributes["type"].Value = $Name
-        } elseif (-not $document.configuration["system.webServer"]) {
-            $webServerElement = $document.CreateElement("system.webServer")
+        } elseif (-not $node.SelectSingleNode("modules")) {
             $modulesElement = $document.CreateElement("modules")
             $addElement = $document.CreateElement("add")
 
             $addElement.SetAttribute("name", "ApplicationSecurityAuthenticationModule")
             $addElement.SetAttribute("type", $Name)
             $modulesElement.AppendChild($addElement)
-            $webServerElement.AppendChild($modulesElement)
-            $document.configuration.AppendChild($webServerElement)
-        } elseif (-not $document.configuration["system.webServer"].SelectSingleNode("modules")) {
-            $modulesElement = $document.CreateElement("modules")
-            $addElement = $document.CreateElement("add")
-
-            $addElement.SetAttribute("name", "ApplicationSecurityAuthenticationModule")
-            $addElement.SetAttribute("type", $Name)
-            $modulesElement.AppendChild($addElement)
-            $document.configuration["system.webServer"].AppendChild($modulesElement)
+            $node.AppendChild($modulesElement)
         } else {
             $addElement = $document.CreateElement("add")
 
             $addElement.SetAttribute("name", "ApplicationSecurityAuthenticationModule")
             $addElement.SetAttribute("type", $Name)
 
-            $document.configuration["system.webServer"].SelectSingleNode("modules").AppendChild($addElement)
+            $node.SelectSingleNode("modules").AppendChild($addElement)
         }
 
         $document.Save($DocumentPath)

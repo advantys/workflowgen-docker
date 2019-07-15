@@ -1,4 +1,3 @@
-#requires -Version 5.1
 <#
 .SYNOPSIS
     This script prepares the environement based on provided environment
@@ -7,6 +6,7 @@
 .NOTES
     File name: docker-entrypoint.ps1
 #>
+#requires -Version 5.1
 using namespace System
 using namespace System.Collections
 using namespace System.Data.SqlClient
@@ -60,7 +60,6 @@ $wfgenDependencyCheckEnabled              = Get-WFGEnvVar "WFGEN_DEPENDENCY_CHEC
 
 # Common paths
 $webConfigPath        = Join-WFGPath "C:\", "inetpub", "wwwroot", "wfgen", "web.config"
-$graphqlWebConfigPath = Join-WFGPath "C:\", "inetpub", "wwwroot", "wfgen", "graphql", "web.config"
 $licensesPath         = Join-WFGPath "C:\", "wfgen", "licenses"
 $wfgenBinPath         = Join-WFGPath "C:\", "inetpub", "wwwroot", "wfgen", "bin"
 
@@ -354,11 +353,11 @@ Write-Host "CONFIG: Setting the authentication mode to $authModeName ... " -NoNe
 switch -Regex ($authModeName.ToLower()) {
     $global:Constants.AUTH_MODE_APPLICATION {
         # Replaces the JWTAuthenticationModule with the AuthenticationModule when mode is application
-        $webConfigPath, $graphqlWebConfigPath `
-            | Remove-AuthenticationModule `
+        "global", "graphql" `
+            | Remove-AuthenticationModule -DocumentPath $webConfigPath `
             | Out-Null
-        $webConfigPath, $graphqlWebConfigPath `
-            | Add-AuthenticationModule "Advantys.Security.Http.AuthenticationModule" `
+        "global", "graphql" `
+            | Add-AuthenticationModule "Advantys.Security.Http.AuthenticationModule" -DocumentPath $webConfigPath `
             | Out-Null
 
         Set-IISAuthentication Anonymous -Location $global:Constants.IIS_SITE_LOCATION_WFGEN
@@ -377,8 +376,8 @@ switch -Regex ($authModeName.ToLower()) {
 
     "$($global:Constants.AUTH_MODE_AZURE_V1)|$($global:Constants.AUTH_MODE_AUTH0)|$($global:Constants.AUTH_MODE_ADFS)|$($global:Constants.AUTH_MODE_OKTA)" {
         # Replaces the AuthenticationModule with the JWTAuthenticationModule when auth is an OIDC provider.
-        $webConfigPath | Remove-AuthenticationModule | Out-Null
-        $webConfigPath | Add-AuthenticationModule "Advantys.Security.Http.JWTAuthenticationModule" | Out-Null
+        "global" | Remove-AuthenticationModule -DocumentPath $webConfigPath | Out-Null
+        "global" | Add-AuthenticationModule "Advantys.Security.Http.JWTAuthenticationModule" -DocumentPath $webConfigPath | Out-Null
 
         Set-IISAuthentication Anonymous -Location $global:Constants.IIS_SITE_LOCATION_WFGEN
         Set-IISAuthentication Anonymous -Location $global:Constants.IIS_SITE_LOCATION_GRAPHQL
