@@ -1,34 +1,37 @@
-trigger:
-  branches:
-    include:
-    - master
 jobs:
-- job: Buildltsc2016
-  displayName: Build WorkflowGen's Images (ltsc2016)
-  strategy:
+- strategy:
     matrix:
       "7.15":
         WINDOWS_SERVER_VERSION: ltsc2016
         WFGEN_VERSION_FOLDER: "7.15"
         WFGEN_VERSION: 7.15.5
+      "7.16":
+        WINDOWS_SERVER_VERSION: ltsc2016
+        WFGEN_VERSION_FOLDER: "7.16"
+        WFGEN_VERSION: 7.16.0
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2016
         WFGEN_VERSION_FOLDER: "7.14"
         WFGEN_VERSION: 7.14.7
   steps:
   - template: scripts/steps/build-images.yml
+  job: Buildltsc2016
   pool:
     demands: Container.Windows.Version -equals ltsc2016
     name: Docker
-- job: Buildltsc2019
-  displayName: Build WorkflowGen's Images (ltsc2019)
-  strategy:
+  displayName: Build WorkflowGen's Images (ltsc2016)
+- strategy:
     matrix:
       "7.15":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.15"
         WFGEN_VERSION: 7.15.5
-        ADDITIONAL_TAGS: latest, 7, 7.15, 7.15.5
+        ADDITIONAL_TAGS: 7.15, 7.15.5
+      "7.16":
+        WINDOWS_SERVER_VERSION: ltsc2019
+        WFGEN_VERSION_FOLDER: "7.16"
+        WFGEN_VERSION: 7.16.0
+        ADDITIONAL_TAGS: latest, 7, 7.16, 7.16.0
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.14"
@@ -36,6 +39,12 @@ jobs:
         ADDITIONAL_TAGS: 7.14, 7.14.7
   steps:
   - template: scripts/steps/build-images.yml
+  job: Buildltsc2019
   pool:
     demands: Container.Windows.Version -equals ltsc2019
     name: Docker
+  displayName: Build WorkflowGen's Images (ltsc2019)
+trigger:
+  branches:
+    include:
+    - master
