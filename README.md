@@ -1,8 +1,9 @@
 # WorkflowGen for Docker
 This repository contains the Dockerfiles used for the WorkflowGen image. You can
 find the image and a quick documentation on [Docker Hub](https://hub.docker.com/r/advantys/workflowgen).
-This repository is designed for documentation purposes. It informs on how
-WorkflowGen in setup inside specific images and how it is configured at runtime.
+This repository is designed for documentation purposes. It provides information
+on how WorkflowGen is set up inside specific images and how it is configured at
+runtime.
 
 You can get started on the setup by visiting the Dockerfile for a specific version
 of WorkflowGen and get started on the configuration at runtime by visiting the
@@ -30,7 +31,7 @@ version available in this repository.
     Contains multiple scripts for the pipeline build.
 
 ## WorkflowGen version folders
-Those folders contains all the files necessary to build the Docker image of
+Those folders contains all of the files necessary to build the Docker image of
 WorkflowGen for a specific version. For example, the 7.15 folder has the
 following structure:
 
@@ -48,7 +49,7 @@ following structure:
 ```
 
 The `windows` folder indicates the platform of the files underneath. The
-`windowsservercore-<version>` folders represents the base image currently supported
+`windowsservercore-<version>` folders represent the base image currently supported
 on the platform. The `onbuild` folder represents a variant of the image. The
 main image files are located in the folder that represents the base image.
 
@@ -75,7 +76,7 @@ more platforms available.
 
 ## Building
 To build a specific version of WorkflowGen, open PowerShell and go to the desired
-version, platform and base image folder. For example, if you are on Windows Server 2019
+version, platform, and base image folder. For example, if you are on Windows Server 2019
 and want to build the latest 7.15 version of WorkflowGen (7.15.5), go to the `7.15\windows\windowsservercore-ltsc2019`
 folder and execute the following command:
 
@@ -90,5 +91,5 @@ and execute the following command:
 docker build -t advantys/workflowgen:7.15.5-win-ltsc2019-onbuild .
 ```
 
-You should now have two Docker images of WorkflowGen in you list of images. To
+You should now have two Docker images of WorkflowGen in your list of images. To
 get the images that are on your machine, execute `docker image ls`.
