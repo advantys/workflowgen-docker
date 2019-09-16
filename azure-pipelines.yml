@@ -22,8 +22,7 @@ jobs:
   steps:
   - template: scripts/steps/build-images.yml
   pool:
-    demands: Container.Windows.Version -equals ltsc2016
-    name: Docker
+    vmImage: 'vs2017-win2016'
 - job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
   strategy:
@@ -46,5 +45,4 @@ jobs:
   steps:
   - template: scripts/steps/build-images.yml
   pool:
-    demands: Container.Windows.Version -equals ltsc2019
-    name: Docker
+    vmName: 'windows-2019'
