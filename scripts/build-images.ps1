@@ -27,10 +27,10 @@ $tags.AddRange(@(
     $minorVersionTag,
     $minorVersionOnbuildTag
 ))
-& docker.exe build -t $completeTag $buildPath
-& docker.exe build -t $onbuildTag $onbuildPath
-& docker.exe tag $completeTag $minorVersionTag
-& docker.exe tag $onbuildTag $minorVersionOnbuildTag
+docker build -t $completeTag $buildPath
+docker build -t $onbuildTag $onbuildPath
+docker tag $completeTag $minorVersionTag
+docker tag $onbuildTag $minorVersionOnbuildTag
 
 if ($env:ADDITIONAL_TAGS) {
     $env:ADDITIONAL_TAGS -split "," `
@@ -41,16 +41,16 @@ if ($env:ADDITIONAL_TAGS) {
             $onbuild = "$_-onbuild"
 
             $tags.AddRange(@($_, $onbuild))
-            & docker.exe tag $completeTag $_
-            & docker.exe tag $onbuildTag $onbuild
+            docker tag $completeTag $_
+            docker tag $onbuildTag $onbuild
         }
 
     if ("latest" -in $additionalTags) {
         $latestTag = "$imageName`:latest"
 
         $tags.Add($latestTag)
-        & docker.exe tag $completeTag $latestTag
+        docker tag $completeTag $latestTag
     }
 }
 
-$tags | ForEach-Object { & docker.exe push $_ }
+$tags | ForEach-Object { docker push $_ }
