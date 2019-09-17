@@ -45,4 +45,4 @@ jobs:
   steps:
   - template: scripts/steps/build-images.yml
   pool:
-    vmName: 'windows-2019'
+    vmImage: 'windows-2019'
