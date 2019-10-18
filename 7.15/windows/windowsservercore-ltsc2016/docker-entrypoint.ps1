@@ -468,7 +468,16 @@ switch -Regex ($wfgenStartService) {
 #endregion
 
 Write-Host "SERVICES: WorkflowGen's services started." -ForegroundColor Green
-Invoke-Expression "$args"
+
+# Since Docker for Windows has bugs with ENTRYPOINT and CMD, this replaces
+# the need for the CMD instruction. (Bugged since engine version 19.03)
+# Now a warning is issued when using an ENTRYPOINT exec form with a CMD shell form.
+# More details: https://github.com/moby/moby/issues/33373
+if ($args.Count -gt 0) {
+    Invoke-Expression "$args"
+} else {
+    & powershell.exe C:\monitor-services.ps1
+}
 
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

@@ -101,4 +101,3 @@ COPY .\docker-entrypoint.ps1 `
     .\Auth.psm1 `
     C:\
 ENTRYPOINT C:\docker-entrypoint.ps1
-CMD [ "C:\\monitor-services.ps1" ]
