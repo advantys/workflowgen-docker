@@ -18,7 +18,7 @@ jobs:
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2016
         WFGEN_VERSION_FOLDER: "7.14"
-        WFGEN_VERSION: 7.14.8
+        WFGEN_VERSION: 7.14.9
   steps:
   - template: scripts/steps/build-images.yml
   pool:
@@ -40,8 +40,8 @@ jobs:
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.14"
-        WFGEN_VERSION: 7.14.8
-        ADDITIONAL_TAGS: 7.14, 7.14.8
+        WFGEN_VERSION: 7.14.9
+        ADDITIONAL_TAGS: 7.14, 7.14.9
   steps:
   - template: scripts/steps/build-images.yml
   pool:
