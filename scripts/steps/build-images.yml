@@ -1,9 +1,8 @@
 steps:
-  - task: Docker@1
+  - task: Docker@2
     inputs:
       command: login
-      containerregistrytype: Container Registry
-      dockerRegistryEndpoint: Charles Docker Hub
+      containerRegistry: Docker Hub Advantys
   - task: PowerShell@2
     inputs:
       targetType: filePath
