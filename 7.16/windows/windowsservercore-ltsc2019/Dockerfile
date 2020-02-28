@@ -7,8 +7,8 @@ SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$Progress
 RUN Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication -Verbose; `
     Enable-WindowsOptionalFeature -Online -FeatureName IIS-BasicAuthentication -Verbose;
 
-ENV NODE_VERSION=10.16.1
-ENV NODE_SHA256=dc99f8c0be1e8bb1abfaa194113712ba85cc749bd32990f84cdcdd3b619f6a1c
+ENV NODE_VERSION=10.16.3
+ENV NODE_SHA256=f68b75eea46232adb8fd38126c977dc244166d29e7c6cd2df930b460c38590a9
 
 # Install NodeJS
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
@@ -46,22 +46,14 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
         -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.16.5/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
-    Expand-Archive -Path C:\manual.zip -DestinationPath C:\manual; `
+    New-Item C:\manual -ItemType Directory | Out-Null; `
+    tar -xf C:\manual.zip -C C:\manual; `
     Write-Host 'done'; `
     Join-Path 'C:\manual' 'Inetpub' | Copy-Item -Destination C:\ -Recurse -Force; `
     Join-Path 'C:\manual' 'Program Files' | Copy-Item -Destination C:\ -Recurse -Force; `
     Remove-Item C:\manual -Recurse -Force -ErrorAction SilentlyContinue; `
     Remove-Item C:\manual.zip -Force -ErrorAction SilentlyContinue
 
-WORKDIR C:\inetpub\wwwroot\wfgen
-# Install Node apps dependencies
-RUN '.\auth', '..\scim', '..\hooks', '..\graphql' | `
-    ForEach-Object { `
-        Set-Location $_; `
-        &npm install --production; `
-    };
-
-WORKDIR C:/
 RUN Import-Module IISAdministration; `
     # App_Data and wfapps are moved to C:\wfgen\setup because it can be confusing
     # to leave them in C:\inetpub\wwwroot\wfgen because they are only used with volumes
@@ -124,12 +116,14 @@ COPY .\healthcheck.ps1 C:\
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
     CMD [ "powershell", "C:\\healthcheck.ps1" ]
 
-VOLUME [ `
-    "C:\\wfgen\\licenses", `
-    "C:\\wfgen\\appdata", `
-    "C:\\wfgen\\wfapps" `
-]
-EXPOSE 80 443
+# Deactivated because of an issue when mounting using the --mount parameter.
+# https://github.com/moby/moby/issues/39577
+# VOLUME [ `
+#     "C:\\wfgen\\licenses", `
+#     "C:\\wfgen\\appdata", `
+#     "C:\\wfgen\\wfapps" `
+# ]
+EXPOSE 80
 ENV WFGEN_VERSION=7.16.5
 
 COPY .\docker-entrypoint.ps1 `

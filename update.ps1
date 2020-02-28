@@ -105,7 +105,7 @@ if ($repoHasVersion) {
         ([io.path]::Combine($TemplatesPath, "workflowgen", "Dockerfile.template"))
     )
 
-    "ltsc2016", "ltsc2019" `
+    ,"ltsc2019" `
         | ForEach-Object {
             $path = [io.path]::Combine($PSScriptRoot, $minorVersion, "windows", "windowsservercore-$_")
 
@@ -128,9 +128,8 @@ if ($repoHasVersion) {
             $content = Get-Content $_.FullName -Encoding UTF8
             $content = $content -replace "#{WFGEN_VERSION}#", $ToVersion
 
-            if ($_.FullName -like "*ltsc2016*") {
-                $content = $content -replace "#{WINDOWS_SERVER_VERSION}#", "ltsc2016"
-            } elseif ($_.FullName -like "*ltsc2019*") {
+            # Add more conditions when adding more supported versions
+            if ($_.FullName -like "*ltsc2019*") {
                 $content = $content -replace "#{WINDOWS_SERVER_VERSION}#", "ltsc2019"
             }
 
@@ -144,7 +143,6 @@ if ($repoHasVersion) {
             WFGEN_VERSION = $ToVersion
             WFGEN_VERSION_FOLDER = $minorVersion
             WINDOWS_SERVER_VERSION = $(switch ($_.job) {
-                "Buildltsc2016" { "ltsc2016" }
                 "Buildltsc2019" { "ltsc2019" }
             })
         }

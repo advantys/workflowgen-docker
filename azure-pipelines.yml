@@ -3,30 +3,6 @@ trigger:
     include:
     - master
 jobs:
-- job: Buildltsc2016
-  displayName: Build WorkflowGen's Images (ltsc2016)
-  strategy:
-    matrix:
-      "7.15":
-        WINDOWS_SERVER_VERSION: ltsc2016
-        WFGEN_VERSION_FOLDER: "7.15"
-        WFGEN_VERSION: 7.15.8
-      "7.16":
-        WINDOWS_SERVER_VERSION: ltsc2016
-        WFGEN_VERSION_FOLDER: "7.16"
-        WFGEN_VERSION: 7.16.5
-      "7.14":
-        WINDOWS_SERVER_VERSION: ltsc2016
-        WFGEN_VERSION_FOLDER: "7.14"
-        WFGEN_VERSION: 7.14.9
-      "7.17":
-        WINDOWS_SERVER_VERSION: ltsc2016
-        WFGEN_VERSION_FOLDER: "7.17"
-        WFGEN_VERSION: 7.17.1
-  steps:
-  - template: scripts/steps/build-images.yml
-  pool:
-    vmImage: vs2017-win2016
 - job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
   strategy:

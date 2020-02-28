@@ -1,30 +1,55 @@
 ﻿# escape=`
-
-FROM advantys/aspnet-iisnode:4.7.2-node-10.15.2-win-ltsc2019
+FROM mcr.microsoft.com/dotnet/framework/aspnet:4.7.2-windowsservercore-ltsc2019
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
+
+ENV NODE_VERSION=10.15.3
+ENV NODE_SHA256=46b3d03c96de0b9e7d3a204c67772759283221f5e58ac225df813076a65e2738
+
+# Install NodeJS
+RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
+    Invoke-WebRequest `
+        -Uri ('https://nodejs.org/dist/v{0}/node-v{0}-x64.msi' -f $env:NODE_VERSION) `
+        -OutFile C:\node.msi `
+        -Verbose; `
+    if ((Get-FileHash C:\node.msi -Algorithm SHA256).Hash -ne $env:NODE_SHA256.ToUpper()) { `
+        Write-Error 'Hash string does not match the one of the downloaded package.'; `
+    }`
+    Start-Process -FilePath C:\node.msi -Wait -Verbose; `
+    Remove-Item -Path C:\node.msi -Force -Verbose
+
+ENV IISNODE_VERSION=0.2.26
+
+# Install iisnode
+RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
+    Invoke-WebRequest `
+        -Uri ('https://github.com/azure/iisnode/releases/download/v{0}/iisnode-full-v{0}-x64.msi' -f $env:IISNODE_VERSION) `
+        -OutFile C:\iisnode.msi `
+        -Verbose; `
+    Start-Process -FilePath C:\iisnode.msi -Wait -Verbose; `
+    Start-Sleep -Seconds 30 -Verbose; `
+    Invoke-WebRequest `
+        -Uri 'http://download.microsoft.com/download/C/9/E/C9E8180D-4E51-40A6-A9BF-776990D8BCA9/rewrite_amd64.msi' `
+        -OutFile C:\rewrite.msi `
+        -Verbose; `
+    Start-Process -FilePath C:\rewrite.msi -Wait -Verbose; `
+    Start-Sleep -Seconds 30 -Verbose; `
+    Remove-Item -Path C:\rewrite.msi -Force -Verbose; `
+    Remove-Item -Path C:\iisnode.msi -Force -Verbose
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
         -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.15.8/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
-    Expand-Archive -Path C:\manual.zip -DestinationPath C:\manual; `
+    New-Item C:\manual -ItemType Directory | Out-Null; `
+    tar -xf C:\manual.zip -C C:\manual; `
     Write-Host 'done'; `
     Join-Path 'C:\manual' 'Inetpub' | Copy-Item -Destination C:\ -Recurse -Force; `
     Join-Path 'C:\manual' 'Program Files' | Copy-Item -Destination C:\ -Recurse -Force; `
     Remove-Item C:\manual -Recurse -Force -ErrorAction SilentlyContinue; `
     Remove-Item C:\manual.zip -Force -ErrorAction SilentlyContinue
 
-WORKDIR C:\inetpub\wwwroot\wfgen
-# Install Node apps dependencies
-RUN '.\auth', '..\scim', '..\hooks', '..\graphql' | `
-    ForEach-Object { `
-        Set-Location $_; `
-        &npm install --production; `
-    };
-
-WORKDIR C:/
 RUN Import-Module IISAdministration; `
     # App_Data and wfapps are moved to C:\wfgen\setup because it can be confusing
     # to leave them in C:\inetpub\wwwroot\wfgen because they are only used with volumes
@@ -87,12 +112,14 @@ COPY .\healthcheck.ps1 C:\
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
     CMD [ "powershell", "C:\\healthcheck.ps1" ]
 
-VOLUME [ `
-    "C:\\wfgen\\licenses", `
-    "C:\\wfgen\\appdata", `
-    "C:\\wfgen\\wfapps" `
-]
-EXPOSE 80 443
+# Deactivated because of an issue when mounting using the --mount parameter.
+# https://github.com/moby/moby/issues/39577
+# VOLUME [ `
+#     "C:\\wfgen\\licenses", `
+#     "C:\\wfgen\\appdata", `
+#     "C:\\wfgen\\wfapps" `
+# ]
+EXPOSE 80
 ENV WFGEN_VERSION=7.15.8
 
 COPY .\docker-entrypoint.ps1 `
