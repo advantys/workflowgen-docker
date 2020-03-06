@@ -3,15 +3,15 @@ trigger:
     include:
     - master
 jobs:
-- job: Buildltsc2019
+  job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
   strategy:
     matrix:
       "7.15":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.15"
-        WFGEN_VERSION: 7.15.8
-        ADDITIONAL_TAGS: 7.15, 7.15.8
+        WFGEN_VERSION: 7.15.9
+        ADDITIONAL_TAGS: 7.15, 7.15.9
       "7.16":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.16"
