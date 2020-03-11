@@ -3,7 +3,7 @@ trigger:
     include:
     - master
 jobs:
-- job: Buildltsc2019
+  job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
   strategy:
     matrix:
@@ -26,7 +26,12 @@ jobs:
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.17"
         WFGEN_VERSION: 7.17.2
-        ADDITIONAL_TAGS: latest, 7, 7.17, 7.17.2
+        ADDITIONAL_TAGS: 7.17, 7.17.2
+      "7.18":
+        WINDOWS_SERVER_VERSION: ltsc2019
+        WFGEN_VERSION_FOLDER: "7.18"
+        WFGEN_VERSION: 7.18.0
+        ADDITIONAL_TAGS: latest, 7, 7.18, 7.18.0
   steps:
   - template: scripts/steps/build-images.yml
   pool:
