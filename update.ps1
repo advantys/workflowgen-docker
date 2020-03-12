@@ -60,7 +60,7 @@ if ($repoHasVersion) {
         }
 
     $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
-    $newJobs = $pipelinesDef.jobs | ForEach-Object {
+    [array]$newJobs = $pipelinesDef.jobs | ForEach-Object {
         $currentMatrix = $_.strategy.matrix[$minorVersion]
         $currentMatrix.WFGEN_VERSION = $ToVersion
 
@@ -138,7 +138,7 @@ if ($repoHasVersion) {
 
     $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
 
-    $newJobs = $pipelinesDef.jobs | ForEach-Object {
+    [array]$newJobs = $pipelinesDef.jobs | ForEach-Object {
         $newMatrix = @{
             WFGEN_VERSION = $ToVersion
             WFGEN_VERSION_FOLDER = $minorVersion
