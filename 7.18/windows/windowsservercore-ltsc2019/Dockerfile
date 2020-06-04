@@ -1,4 +1,4 @@
-﻿# escape=`
+# escape=`
 FROM mcr.microsoft.com/dotnet/framework/aspnet:4.8-windowsservercore-ltsc2019
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
@@ -7,8 +7,8 @@ SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$Progress
 RUN Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication -Verbose; `
     Enable-WindowsOptionalFeature -Online -FeatureName IIS-BasicAuthentication -Verbose;
 
-ENV NODE_VERSION=10.19.0
-ENV NODE_SHA256=6151538702d4bd106b66d28ce606f9faa2a8fc8baa50762bea0baec564b5e79e
+ENV NODE_VERSION=10.20.1
+ENV NODE_SHA256=3bfc5ef20f4e93ec5bfb910c301101880d429409cd23e8f793618bf3caa5112b
 
 # Install NodeJS
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
@@ -120,13 +120,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
 # https://github.com/moby/moby/issues/39577
 # VOLUME [ `
 #     "C:\\wfgen\\licenses", `
-#     "C:\\wfgen\\appdata", `
-#     "C:\\wfgen\\wfapps" `
+#     "C:\\wfgen\\data" `
 # ]
 EXPOSE 80
 ENV WFGEN_VERSION=7.18.2
 
 COPY .\docker-entrypoint.ps1 `
+    .\set-state.ps1 `
     .\monitor-services.ps1 `
     .\Utils.psm1 `
     .\Const.psm1 `

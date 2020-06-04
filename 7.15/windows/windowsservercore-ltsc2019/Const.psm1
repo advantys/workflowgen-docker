@@ -1,4 +1,3 @@
-#requires -Version 5.1
 <#
 .SYNOPSIS
     Contains the definition of constants used in scripts for WorkflowGen's
@@ -6,6 +5,7 @@
 .NOTES
     File Name: Const.psm1
 #>
+#requires -Version 5.1
 
 $Constants = @{
     # Common constants
@@ -14,10 +14,13 @@ $Constants = @{
     DATABASE_NAME                        = "WFGEN"
     WEB_CONFIG_PREFIX                    = "WFGEN_APP_SETTING_"
     IISNODE_CONFIG_PREFIX                = "WFGEN_IISNODE_"
+    IISNODE_OPTION_PREFIX                = "WFGEN_ENABLE_IISNODE_OPTION_"
     ENV_VAR_FILE_SUFFIX                  = "_FILE"
     WFGEN_CUSTOM_CONNECTION_STRING_REGEX = "(?<=WFGEN_CUSTOM_CONNECTION_STRING_)(?<conn_str_name>[a-zA-Z0-9]*)?(?=(?<provider_name>_PROVIDER_NAME))?"
-    APPLICATION_DATA_PATH                = ([io.path]::Combine("C:\", "wfgen", "appdata"))
-    WFAPPS_PATH                          = ([io.path]::Combine("C:\", "wfgen", "wfapps"))
+    APPLICATION_DATA_PATH                = ([io.path]::Combine("C:\", "wfgen", "data", "appdata"))
+    WFAPPS_PATH                          = ([io.path]::Combine("C:\", "wfgen", "data", "wfapps"))
+    CONTAINER_STATE_OFFLINE              = "offline"
+    CONTAINER_STATE_ONLINE               = "online"
 
     # WFGEN_START_SERVICE Constants
     SERVICE_WEB_APPS     = "web_apps"
@@ -27,16 +30,19 @@ $Constants = @{
     SERVICE_ALL          = "all"
 
     # Authentication Modes
-    AUTH_MODE_APPLICATION = "application"
-    AUTH_MODE_AZURE_V1    = "azure-v1"
-    AUTH_MODE_ADFS        = "adfs"
-    AUTH_MODE_AUTH0       = "auth0"
-    AUTH_MODE_OKTA        = "okta"
+    AUTH_MODE_APPLICATION    = "application"
+    AUTH_MODE_AZURE_V1       = "azure-v1"
+    AUTH_MODE_MS_IDENTITY_V2 = "ms-identity-v2"
+    AUTH_MODE_ADFS           = "adfs"
+    AUTH_MODE_AUTH0          = "auth0"
+    AUTH_MODE_OKTA           = "okta"
+    AUTH_MODE_WINDOWS        = "windows"
+    AUTH_MODE_BASIC          = "basic"
 
     # IIS Site Web Applications Locations
-    IIS_SITE_LOCATION_WFGEN = "wfgenroot/wfgen"
-    IIS_SITE_LOCATION_GRAPHQL = "wfgenroot/wfgen/graphql"
-    IIS_SITE_LOCATION_WS = "wfgenroot/wfgen/ws"
+    IIS_SITE_LOCATION_WFGEN     = "wfgenroot/wfgen"
+    IIS_SITE_LOCATION_GRAPHQL   = "wfgenroot/wfgen/graphql"
+    IIS_SITE_LOCATION_WS        = "wfgenroot/wfgen/ws"
     IIS_SITE_LOCATION_WEB_FORMS = "wfgenroot/wfgen/WfApps/WebForms"
 }.GetEnumerator() `
     | ForEach-Object -Begin { $constants = [PSCustomObject]::new() } -Process {

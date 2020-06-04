@@ -14,10 +14,13 @@ $Constants = @{
     DATABASE_NAME                        = "WFGEN"
     WEB_CONFIG_PREFIX                    = "WFGEN_APP_SETTING_"
     IISNODE_CONFIG_PREFIX                = "WFGEN_IISNODE_"
+    IISNODE_OPTION_PREFIX                = "WFGEN_ENABLE_IISNODE_OPTION_"
     ENV_VAR_FILE_SUFFIX                  = "_FILE"
     WFGEN_CUSTOM_CONNECTION_STRING_REGEX = "(?<=WFGEN_CUSTOM_CONNECTION_STRING_)(?<conn_str_name>[a-zA-Z0-9]*)?(?=(?<provider_name>_PROVIDER_NAME))?"
-    APPLICATION_DATA_PATH                = ([io.path]::Combine("C:\", "wfgen", "appdata"))
-    WFAPPS_PATH                          = ([io.path]::Combine("C:\", "wfgen", "wfapps"))
+    APPLICATION_DATA_PATH                = ([io.path]::Combine("C:\", "wfgen", "data", "appdata"))
+    WFAPPS_PATH                          = ([io.path]::Combine("C:\", "wfgen", "data", "wfapps"))
+    CONTAINER_STATE_OFFLINE              = "offline"
+    CONTAINER_STATE_ONLINE               = "online"
 
     # WFGEN_START_SERVICE Constants
     SERVICE_WEB_APPS     = "web_apps"

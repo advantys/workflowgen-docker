@@ -1,4 +1,4 @@
-﻿# escape=`
+# escape=`
 FROM mcr.microsoft.com/dotnet/framework/aspnet:4.8-windowsservercore-ltsc2019
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
@@ -120,13 +120,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
 # https://github.com/moby/moby/issues/39577
 # VOLUME [ `
 #     "C:\\wfgen\\licenses", `
-#     "C:\\wfgen\\appdata", `
-#     "C:\\wfgen\\wfapps" `
+#     "C:\\wfgen\\data" `
 # ]
 EXPOSE 80
 ENV WFGEN_VERSION=7.16.7
 
 COPY .\docker-entrypoint.ps1 `
+    .\set-state.ps1 `
     .\monitor-services.ps1 `
     .\Utils.psm1 `
     .\Const.psm1 `

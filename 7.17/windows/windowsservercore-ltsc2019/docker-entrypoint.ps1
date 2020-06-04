@@ -7,9 +7,16 @@
     File name: docker-entrypoint.ps1
 #>
 #requires -Version 5.1
+#requires -Modules WebAdministration
 using namespace System
 using namespace System.Collections
 using namespace System.Data.SqlClient
+
+[CmdletBinding()]
+param(
+    [Parameter(ValueFromRemainingArguments=$true)]
+    $RemainingArgs
+)
 
 Import-Module WebAdministration
 Import-Module "$PSScriptRoot\Utils.psm1" -Prefix "WFG"
@@ -129,8 +136,8 @@ if ($machineKeyDecryptionKey -and
     $machineKeyElement.SetAttribute("decryptionKey", $machineKeyDecryptionKey)
     $machineKeyElement.SetAttribute("validation", $machineKeyValidationAlg)
     $machineKeyElement.SetAttribute("validationKey", $machineKeyValidationKey)
-    $webConfig.configuration["system.web"].AppendChild($machineKeyElement)
-    $webConfig.Save($webConfigPath)
+    $webConfig.configuration["system.web"].AppendChild($machineKeyElement) | Out-null
+    $webConfig.Save($webConfigPath) | Out-Null
 }
 #endregion
 
@@ -149,8 +156,8 @@ if (-not $webConfig.SelectSingleNode("//add[@name=""ReadonlyDbSource""]") -and
     $webConfig.
         configuration.
         connectionStrings.
-        AppendChild($addNode)
-    $webConfig.Save($webConfigPath)
+        AppendChild($addNode) | Out-Null
+    $webConfig.Save($webConfigPath) | Out-Null
 }
 
 [Environment]::GetEnvironmentVariables().GetEnumerator() `
@@ -192,8 +199,8 @@ if (-not $webConfig.SelectSingleNode("//add[@name=""ReadonlyDbSource""]") -and
         $webConfig.
             configuration.
             connectionStrings.
-            AppendChild($_)
-        $webConfig.Save($webConfigPath)
+            AppendChild($_) | Out-Null
+        $webConfig.Save($webConfigPath) | Out-Null
         Write-Host "CONFIG: Added new connection string: $( $_.OuterXml )"
     }
 #endregion
@@ -254,8 +261,31 @@ $setIISNodeSettingsFromEnv = { param ($Prefix)
             }
         } `
         | ForEach-Object {
-            Write-Host "CONFIG: Setting IISNode option ""$( $_.Attribute.Name )"" for application ""$( $_.Application )"" ... " -NoNewline
+            Write-Host "CONFIG: Setting IISNode configuration ""$( $_.Attribute.Name )"" for application ""$( $_.Application )"" ... " -NoNewline
             Set-WFGIISNodeSetting $_.Attribute.Name $_.Attribute.Value -Application $_.Application
+            Write-Host "done" -ForegroundColor Green
+        }
+}
+$setIISNodeOptionFromEnv = { param($Prefix)
+    [Environment]::GetEnvironmentVariables().GetEnumerator() `
+        | Where-Object {
+            -not $_.Key.EndsWith($global:Constants.ENV_VAR_FILE_SUFFIX) -and
+            $_.Key.StartsWith($Prefix)
+        } `
+        | ForEach-Object {
+            $applicationName = switch ($_.Key.Remove(0, $Prefix.Length)) {
+                "AUTH" { "Auth" }
+                "GRAPHQL" { "GraphQL" }
+                "HOOKS" { "Hooks" }
+                "SCIM" { "SCIM" }
+                default {
+                    Write-WFGError "CONFIG: The given node application name doesn't exist."
+                    exit 1
+                }
+            }
+
+            Write-Host "CONFIG: Setting IISNode option ""$($_.Value)"" for application ""$applicationName"" ... " -NoNewline
+            Enable-WFGIISNodeOption -Name $_.Value -Application $applicationName | Out-Null
             Write-Host "done" -ForegroundColor Green
         }
 }
@@ -277,6 +307,7 @@ $excludedConfig = @(
 )
 & $setAppSettingsFromEnv -Prefix $global:Constants.WEB_CONFIG_PREFIX -Exclude $excludedConfig
 & $setIISNodeSettingsFromEnv -Prefix $global:Constants.IISNODE_CONFIG_PREFIX
+& $setIISNodeOptionFromEnv -Prefix $global:Constants.IISNODE_OPTION_PREFIX
 & $forceSetAppSettingsWebConfig "ApplicationDataPath" $global:Constants.APPLICATION_DATA_PATH
 & $forceSetAppSettingsWebConfig "ApplicationWebFormsPath" (Join-Path $global:Constants.WFAPPS_PATH "webforms")
 #endregion
@@ -284,7 +315,7 @@ $excludedConfig = @(
 #region Volumes management
 if (-not (Test-Path ($global:Constants.APPLICATION_DATA_PATH))) {
     Write-Host "CONFIG: No ApplicationDataPath. Creating ... " -NoNewline
-    New-Item $global:Constants.APPLICATION_DATA_PATH -ItemType Directory
+    New-Item $global:Constants.APPLICATION_DATA_PATH -ItemType Directory -Force | Out-Null
     & $copyDefaultAppDataContent
     Write-Host "done" -ForegroundColor Green
 } elseif ((Get-ChildItem $global:Constants.APPLICATION_DATA_PATH | Measure-Object).Count -le 0) {
@@ -295,7 +326,7 @@ if (-not (Test-Path ($global:Constants.APPLICATION_DATA_PATH))) {
 
 if (-not (Test-Path $global:Constants.WFAPPS_PATH)) {
     Write-Host "CONFIG: No Workflow Applications (WfApps) folder. Creating ... " -NoNewline
-    New-Item $global:Constants.WFAPPS_PATH -ItemType Directory | Out-Null
+    New-Item $global:Constants.WFAPPS_PATH -ItemType Directory -Force | Out-Null
     & $copyDefaultWfappsContent
     Write-Host "done" -ForegroundColor Green
 } elseif ((Get-ChildItem $global:Constants.WFAPPS_PATH | Measure-Object).Count -le 0) {
@@ -338,7 +369,7 @@ if ($applicationSecurityPasswordSymmetricEncryptionKey -and -not $encryptionKeyN
     }
 
     $encryptionKeyNode.Attributes["value"].Value = $applicationSecurityPasswordSymmetricEncryptionKey
-    $webConfig.Save($webConfigPath)
+    $webConfig.Save($webConfigPath) | Out-Null
     Write-Host "done" -ForegroundColor Green
 } elseif (-not $applicationSecurityPasswordSymmetricEncryptionKey -and
     -not $encryptionKeyNode.Attributes["value"].Value -and
@@ -346,7 +377,7 @@ if ($applicationSecurityPasswordSymmetricEncryptionKey -and -not $encryptionKeyN
     Write-Host "CONFIG: Generating the symmetric encryption key ... " -NoNewline
     $generatedKey = [guid]::NewGuid().ToString("N")
     $encryptionKeyNode.Attributes["value"].Value = $generatedKey
-    $webConfig.Save($webConfigPath)
+    $webConfig.Save($webConfigPath) | Out-Null
     Write-Host "done" -ForegroundColor Green
 }
 #endregion
@@ -511,7 +542,6 @@ switch -Regex ($wfgenStartService) {
         Write-Host "done" -ForegroundColor Green
     }
 
-
     "$( $global:Constants.SERVICE_DIR_SYNC )" {
         Write-Host "SERVICES: Starting WorkflowGenDirSyncService Windows service ... " -NoNewline
         Start-Service WorkflowGenDirSyncService | Out-Null
@@ -526,8 +556,8 @@ Write-Host "SERVICES: WorkflowGen's services started." -ForegroundColor Green
 # the need for the CMD instruction. (Bugged since engine version 19.03)
 # Now a warning is issued when using an ENTRYPOINT exec form with a CMD shell form.
 # More details: https://github.com/moby/moby/issues/33373
-if ($args.Count -gt 0) {
-    Invoke-Expression "$args"
+if ($RemainingArgs -and $RemainingArgs.Count -gt 0) {
+    Invoke-Expression ($RemainingArgs.ToArray() -join " ")
 } else {
     & powershell.exe C:\monitor-services.ps1
 }

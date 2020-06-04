@@ -1,7 +1,11 @@
-﻿# escape=`
+# escape=`
 FROM mcr.microsoft.com/dotnet/framework/aspnet:4.7.2-windowsservercore-ltsc2019
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
+
+# Install required authentication methods
+RUN Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication -Verbose; `
+    Enable-WindowsOptionalFeature -Online -FeatureName IIS-BasicAuthentication -Verbose;
 
 ENV NODE_VERSION=10.15.3
 ENV NODE_SHA256=46b3d03c96de0b9e7d3a204c67772759283221f5e58ac225df813076a65e2738
@@ -116,13 +120,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
 # https://github.com/moby/moby/issues/39577
 # VOLUME [ `
 #     "C:\\wfgen\\licenses", `
-#     "C:\\wfgen\\appdata", `
-#     "C:\\wfgen\\wfapps" `
+#     "C:\\wfgen\\data" `
 # ]
 EXPOSE 80
 ENV WFGEN_VERSION=7.15.10
 
 COPY .\docker-entrypoint.ps1 `
+    .\set-state.ps1 `
     .\monitor-services.ps1 `
     .\Utils.psm1 `
     .\Const.psm1 `

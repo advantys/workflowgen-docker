@@ -1,4 +1,3 @@
-#requires -Version 5.1
 <#
 .SYNOPSIS
     Starts ServiceMonitor.exe based on the WFGEN_START_SERVICE environment
@@ -6,6 +5,7 @@
 .NOTES
     File name: monitor-services.ps1
 #>
+#requires -Version 5.1
 using namespace System
 
 Import-Module "$PSScriptRoot\Utils.psm1" -Prefix "WFG"

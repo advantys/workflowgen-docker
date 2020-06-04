@@ -92,6 +92,72 @@ function Set-IISNodeSetting {
     $nodeAppConfig.Save($nodeAppConfigPath)
 }
 
+function Enable-IISNodeOption {
+    <#
+    .SYNOPSIS
+        Enables a special option for iisnode that needs custom code.
+    .DESCRIPTION
+        Some options are hard to generalized without asking for XML input from
+        the user of the container because almost everything comes down to XML
+        when configuring iisnode. Therefore, this function will expose some options
+        and hide the underlying required XML.
+    .PARAMETER Name
+        The name of the option to enable.
+    .PARAMETER ApplicationName
+        The name of the node application to enable the option on.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [ValidateNotNullOrEmpty()]
+        [ValidateSet("ExposeLogs")]
+        [string]$Name,
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Application")]
+        [string]$ApplicationName
+    )
+    $nodeAppName = $ApplicationName.ToLower()
+    $wfgenFolder = [io.path]::Combine("C:\", "inetpub", "wwwroot", "wfgen")
+    $nodeAppConfigPath = [io.path]::Combine($wfgenFolder, $nodeAppName, "web.config")
+    $nodeAppConfig = [xml](Get-Content $nodeAppConfigPath)
+
+    switch ($Name.ToLower()) {
+        "exposelogs" {
+            $iisnodeAddSegment = $nodeAppConfig.
+                configuration["system.webServer"].
+                security.
+                requestFiltering.
+                hiddenSegments.
+                SelectSingleNode("//add[@segment=""iisnode""]")
+            $iisnodeLogsRewriteRule = $nodeAppConfig.
+                configuration["system.webServer"].
+                rewrite.
+                SelectSingleNode("//rule[@name=""LogFile""]")
+
+            if ($iisnodeAddSegment) {
+                $iisnodeAddSegment.ParentNode.RemoveChild($iisnodeAddSegment)
+            }
+
+            if (-not $iisnodeLogsRewriteRule) {
+                $logsRewriteRule = $nodeAppConfig.CreateElement("rule")
+                $match = $nodeAppConfig.CreateElement("match")
+                $logsRewriteRule.SetAttribute("name", "LogFile")
+                $logsRewriteRule.SetAttribute("patternSyntax", "ECMAScript")
+                $logsRewriteRule.SetAttribute("stopProcessing", "true")
+                $match.SetAttribute("url", "iisnode")
+                $logsRewriteRule.AppendChild($match)
+                $nodeAppConfig.
+                    configuration["system.webServer"].
+                    rewrite.
+                    rules.
+                    PrependChild($logsRewriteRule)
+                $nodeAppConfig.Save($nodeAppConfigPath)
+            }
+        }
+    }
+}
+
 function Get-EnvVar {
     <#
     .SYNOPSIS
@@ -180,7 +246,6 @@ function Join-Path {
     param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
         [ValidateNotNullOrEmpty()]
-        [ValidateLength(2, [int]::MaxValue)]
         [string[]]$Path
     )
     begin {
@@ -299,7 +364,76 @@ function Invoke-Block {
             Start-Sleep -Milliseconds $PolicyDefinition.Interval
         }
 
-        Microsoft.Powershell.Management\Write-Error "Policy enforcement on script block failed."
+        Microsoft.Powershell.Utility\Write-Error "Policy enforcement on script block failed."
+    }
+}
+
+function Invoke-OnPlatform {
+    <#
+    .SYNOPSIS
+        Executes a scriptblock on a specific platform.
+    .DESCRIPTION
+        This command is useful for a multi-platform script.
+    .PARAMETER Windows
+        Block to execute on Windows platforms only.
+    .PARAMETER Linux
+        Block to execute on Unix platforms only including Linux and MacOS.
+    .PARAMETER ArgumentList
+        A list of arguments to pass to the scriptblock.
+    .OUTPUTS
+        Outputs anything that the scriptblock returns.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [scriptblock]$Windows = {},
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [scriptblock]$Linux = {},
+        [object[]]$ArgumentList = @()
+    )
+
+    if ($PSVersionTable.PSVersion.Major -le 5 -or $IsWindows) {
+        return & $Windows $ArgumentList
+    } elseif ($IsLinux) {
+        return & $Linux $ArgumentList
+    } else {
+        Microsoft.Powershell.Utility\Write-Error "Unsupported platform."
+    }
+}
+
+function Test-Error {
+    <#
+    .SYNOPSIS
+        Test if the $LASTEXITCODE is 0. Dispays an error message if not.
+    .DESCRIPTION
+        By default, this method will write to the error output with Write-Error.
+    .PARAMETER ErrorMessage
+        The message to write to the error output.
+    .PARAMETER Throw
+        Instead of writing to the error output, throws the error message.
+    .PARAMETER Exit
+        Exits with the last error code if it is not 0.
+    #>
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+        [string]$ErrorMessage = "",
+        [Parameter(Mandatory=$true, ParameterSetName="Throw")]
+        [switch]$Throw,
+        [Parameter(Mandatory=$true, ParameterSetName="Exit")]
+        [switch]$Exit
+    )
+
+    if ($LASTEXITCODE -ne 0) {
+        $code = $LASTEXITCODE
+
+        if ($Throw) {
+            throw $ErrorMessage
+        } elseif ($Exit) {
+            Script:Write-Error $ErrorMessage
+            exit $code
+        } else {
+            Microsoft.Powershell.Utility\Write-Error $ErrorMessage
+        }
     }
 }
 
@@ -310,5 +444,8 @@ Export-ModuleMember -Function @(
     "Set-IISNodeSetting",
     "Join-Path",
     "Write-Error",
-    "New-RetryPolicy"
+    "New-RetryPolicy",
+    "Test-Error",
+    "Invoke-OnPlatform",
+    "Enable-IISNodeOption"
 )
