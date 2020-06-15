@@ -99,8 +99,9 @@ if ($repoHasVersion) {
         (Join-Path $TemplatesPath "Auth.psm1"),
         (Join-Path $TemplatesPath "Const.psm1"),
         (Join-Path $TemplatesPath "Utils.psm1"),
-        (Join-Path $TemplatesPath "healthcheck.ps1"),
-        (Join-Path $TemplatesPath "monitor-services.ps1"),
+        ([io.path]::Combine($TemplatesPath, "workflowgen", "set-state.ps1")),
+        ([io.path]::Combine($TemplatesPath, "workflowgen", "healthcheck.ps1")),
+        ([io.path]::Combine($TemplatesPath, "workflowgen", "monitor-services.ps1")),
         ([io.path]::Combine($TemplatesPath, "workflowgen", "docker-entrypoint.ps1")),
         ([io.path]::Combine($TemplatesPath, "workflowgen", "Dockerfile.template"))
     )
