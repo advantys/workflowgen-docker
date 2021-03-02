@@ -1,4 +1,4 @@
-﻿# escape=`
+# escape=`
 FROM mcr.microsoft.com/dotnet/framework/aspnet:4.8-windowsservercore-ltsc2019
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
@@ -24,7 +24,7 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
 
 ENV IISNODE_VERSION=0.2.26
 
-# Install iisnode
+# Install iisnode and IISCors
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
         -Uri ('https://github.com/azure/iisnode/releases/download/v{0}/iisnode-full-v{0}-x64.msi' -f $env:IISNODE_VERSION) `
@@ -33,17 +33,22 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
     Start-Process -FilePath C:\iisnode.msi -Wait -Verbose; `
     Start-Sleep -Seconds 30 -Verbose; `
     Invoke-WebRequest `
+        -Uri 'https://download.microsoft.com/download/2/F/2/2F259559-FC43-4B2C-B53F-DED3E9950912/IISCORS_amd64.msi' `
+        -OutFile C:\iiscors.msi `
+        -Verbose; `
+    Start-Process -FilePath C:\iiscors.msi -Wait -Verbose; `
+    Start-Sleep -Seconds 30 -Verbose; `
+    Invoke-WebRequest `
         -Uri 'https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi' `
         -OutFile C:\rewrite.msi `
         -Verbose; `
     Start-Process -FilePath C:\rewrite.msi -Wait -Verbose; `
     Start-Sleep -Seconds 30 -Verbose; `
-    Remove-Item -Path C:\rewrite.msi -Force -Verbose; `
-    Remove-Item -Path C:\iisnode.msi -Force -Verbose
+    Remove-Item C:\rewrite.msi, C:\iisnode.msi, C:\iiscors.msi -Force -Verbose;
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.20.1/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/#{WFGEN_VERSION}#/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     New-Item C:\manual -ItemType Directory | Out-Null; `
@@ -69,7 +74,7 @@ RUN Import-Module IISAdministration; `
         -Destination C:\wfgen\setup; `
     Rename-Item C:\wfgen\setup\App_data -NewName 'appdata'; `
     # Set access rights for WorkflowGen's folder
-    & icacls.exe 'C:\Inetpub\wwwroot\wfgen' /T /inheritance:e /grant:r 'IIS_IUSRS:(OI)(CI)M' | Out-Null; `
+    icacls 'C:\Inetpub\wwwroot\wfgen' /T /inheritance:e /grant:r 'IIS_IUSRS:(OI)(CI)M' | Out-Null; `
     # Install WorkflowGen's Windows Services
     &('{0}\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe' -f $env:windir) /i 'C:\Program Files\Advantys\WorkflowGen\Services\Bin\WfgDirectoriesSyncService.exe'; `
     &('{0}\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe' -f $env:windir) /i 'C:\Program Files\Advantys\WorkflowGen\Services\Bin\WfgWorkflowEngineService.exe'; `

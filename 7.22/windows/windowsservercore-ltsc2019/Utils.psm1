@@ -414,10 +414,12 @@ function Test-Error {
         [Parameter(Mandatory=$true, ParameterSetName="Throw")]
         [switch]$Throw,
         [Parameter(Mandatory=$true, ParameterSetName="Exit")]
-        [switch]$Exit
+        [switch]$Exit,
+        [int[]]$AdditionalSuccessCodes = @()
     )
+    $successCodes = @(0) + $AdditionalSuccessCodes
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -notin $successCodes) {
         $code = $LASTEXITCODE
 
         if ($Throw) {

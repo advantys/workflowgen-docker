@@ -68,6 +68,8 @@ $wfgenDependencyCheckInterval             = Get-WFGEnvVar "WFGEN_DEPENDENCY_CHEC
 $wfgenDependencyCheckRetries              = Get-WFGEnvVar "WFGEN_DEPENDENCY_CHECK_RETRIES" -DefaultValue "10" -TryAzureAppServices `
                                                 | ForEach-Object { [Convert]::ToInt32($_) }
 $wfgenDependencyCheckEnabled              = Get-WFGEnvVar "WFGEN_DEPENDENCY_CHECK_ENABLED" -DefaultValue "Y" -TryAzureAppServices
+$graphqlCorsEnabled                       = Get-WFGEnvVar "WFGEN_GRAPHQL_CORS_ENABLED" -DefaultValue "N" -TryAzureAppServices
+$graphqlCorsAllowedOrigins                = Get-WFGEnvVar "WFGEN_GRAPHQL_CORS_ALLOWED_ORIGINS" -DefaultValue "*" -TryAzureAppServices
 
 # Common paths
 $webConfigPath        = Join-WFGPath "C:\", "inetpub", "wwwroot", "wfgen", "web.config"
@@ -310,6 +312,83 @@ $excludedConfig = @(
 & $setIISNodeOptionFromEnv -Prefix $global:Constants.IISNODE_OPTION_PREFIX
 & $forceSetAppSettingsWebConfig "ApplicationDataPath" $global:Constants.APPLICATION_DATA_PATH
 & $forceSetAppSettingsWebConfig "ApplicationWebFormsPath" (Join-Path $global:Constants.WFAPPS_PATH "webforms")
+
+#region CORS
+$locationGql = $webConfig.
+    configuration.
+    SelectSingleNode("//location[@path=""graphql""]")
+
+if (
+    $graphqlCorsEnabled -eq "Y" -and
+    -not (
+        $locationGql -and
+        $locationGql["system.webServer"] -and
+        $locationGql["system.webServer"].cors
+    )
+) {
+    $makeSimpleAdd = { param($AttributeName, $AttributeValue)
+        $addElement = $webConfig.CreateElement("add")
+
+        $addElement.SetAttribute($AttributeName, $AttributeValue)
+        return $addElement
+    }
+    $makeAddMethod = { param($MethodName) return & $makeSimpleAdd "method" $MethodName }
+    $makeAddHeader = { param($HeaderName) return & $makeSimpleAdd "header" $HeaderName }
+    $makeAddOriginElement = { param($OriginName, $AddCrendentials=$false)
+        $allowMethodsElement = $webConfig.CreateElement("allowMethods")
+        $allowHeadersElement = $webConfig.CreateElement("allowHeaders")
+        $addOriginElement = $webConfig.CreateElement("add")
+
+        $allowMethodsElement.AppendChild((& $makeAddMethod "GET")) | Out-Null
+        $allowMethodsElement.AppendChild((& $makeAddMethod "POST")) | Out-Null
+        $allowMethodsElement.AppendChild((& $makeAddMethod "OPTIONS")) | Out-Null
+        $allowMethodsElement.AppendChild((& $makeAddMethod "HEAD")) | Out-Null
+        $allowHeadersElement.AppendChild((& $makeAddHeader "Accept")) | Out-Null
+        $allowHeadersElement.AppendChild((& $makeAddHeader "Origin")) | Out-Null
+        $allowHeadersElement.AppendChild((& $makeAddHeader "Authorization")) | Out-Null
+        $allowHeadersElement.AppendChild((& $makeAddHeader "Content-Type")) | Out-Null
+        $addOriginElement.SetAttribute("origin", $OriginName)
+
+        if ($AddCrendentials) {
+            $addOriginElement.SetAttribute("allowCredentials", "true")
+        }
+
+        $addOriginElement.AppendChild($allowMethodsElement) | Out-Null
+        $addOriginElement.AppendChild($allowHeadersElement) | Out-Null
+
+        return $addOriginElement
+    }
+    $corsElement = $webConfig.CreateElement("cors")
+
+    $corsElement.SetAttribute("enabled", "true")
+    $graphqlCorsAllowedOrigins -split "," `
+        | ForEach-Object {
+            Write-Host "CONFIG: Setting CORS on GraphQL for origin ""$_"" ... " -NoNewline
+            $corsElement.AppendChild((& $makeAddOriginElement $_ ($_ -ne "*"))) | Out-Null
+            Write-Host "done" -ForegroundColor Green
+        }
+
+    if ($locationGql -and $locationGql["system.webServer"]) {
+        $locationGql["system.webServer"].AppendChild($corsElement) | Out-Null
+    } elseif ($locationGql) {
+        $systemWebServer = $webConfig.CreateElement("system.webServer")
+
+        $systemWebServer.AppendChild($corsElement) | Out-Null
+        $locationGql.AppendChild($systemWebServer) | Out-Null
+    } else {
+        $locationGql = $webConfig.CreateElement("location")
+        $systemWebServer = $webConfig.CreateElement("system.webServer")
+
+        $locationGql.SetAttribute("path", "graphql")
+        $locationGql.SetAttribute("inheritInChildApplications", "false")
+        $systemWebServer.AppendChild($corsElement) | Out-Null
+        $locationGql.AppendChild($systemWebServer) | Out-Null
+        $webConfig.configuration.AppendChild($locationGql) | Out-Null
+    }
+
+    $webConfig.Save($webConfigPath) | Out-Null
+}
+#endregion
 #endregion
 
 #region Volumes management
