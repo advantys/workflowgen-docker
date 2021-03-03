@@ -5,6 +5,44 @@
 #requires -Version 5.1
 using namespace System.Collections
 
+function Test-Error {
+    <#
+    .SYNOPSIS
+        Test if the $LASTEXITCODE is 0. Dispays an error message if not.
+    .DESCRIPTION
+        By default, this method will write to the error output with Write-Error.
+    .PARAMETER ErrorMessage
+        The message to write to the error output.
+    .PARAMETER Throw
+        Instead of writing to the error output, throws the error message.
+    .PARAMETER Exit
+        Exits with the last error code if it is not 0.
+    #>
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+        [string]$ErrorMessage = "",
+        [Parameter(Mandatory=$true, ParameterSetName="Throw")]
+        [switch]$Throw,
+        [Parameter(Mandatory=$true, ParameterSetName="Exit")]
+        [switch]$Exit,
+        [int[]]$AdditionalSuccessCodes = @()
+    )
+    $successCodes = @(0) + $AdditionalSuccessCodes
+
+    if ($LASTEXITCODE -notin $successCodes) {
+        $code = $LASTEXITCODE
+
+        if ($Throw) {
+            throw $ErrorMessage
+        } elseif ($Exit) {
+            Script:Write-Error $ErrorMessage
+            exit $code
+        } else {
+            Microsoft.Powershell.Utility\Write-Error $ErrorMessage
+        }
+    }
+}
+
 $buildPath = [io.path]::Combine(
     $env:BUILD_REPOSITORY_LOCALPATH,
     $env:WFGEN_VERSION_FOLDER,
@@ -28,7 +66,9 @@ $tags.AddRange(@(
     $minorVersionOnbuildTag
 ))
 docker build -t $completeTag $buildPath
+Test-Error -ErrorMessage "Failed to build WorkflowGen image."
 docker build -t $onbuildTag $onbuildPath
+Test-Error -ErrorMessage "Failed to build WorkflowGen onbuild image."
 docker tag $completeTag $minorVersionTag
 docker tag $onbuildTag $minorVersionOnbuildTag
 
@@ -53,4 +93,7 @@ if ($env:ADDITIONAL_TAGS) {
     }
 }
 
-$tags | ForEach-Object { docker push $_ }
+$tags | ForEach-Object {
+    docker push $_
+    Test-Error -ErrorMessage "Could not push image: $_"
+}

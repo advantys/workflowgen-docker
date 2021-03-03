@@ -48,7 +48,7 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/#{WFGEN_VERSION}#/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.20.1/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     New-Item C:\manual -ItemType Directory | Out-Null; `
