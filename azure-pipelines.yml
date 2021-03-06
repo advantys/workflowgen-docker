@@ -15,8 +15,8 @@ jobs:
       "7.16":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.16"
-        WFGEN_VERSION: 7.16.8
-        ADDITIONAL_TAGS: 7.16, 7.16.8
+        WFGEN_VERSION: 7.16.9
+        ADDITIONAL_TAGS: 7.16, 7.16.9
       "7.14":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "7.14"
