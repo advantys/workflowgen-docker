@@ -48,7 +48,7 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.22.5/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/7.22.6/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     New-Item C:\manual -ItemType Directory | Out-Null; `
@@ -128,7 +128,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
 #     "C:\\wfgen\\data" `
 # ]
 EXPOSE 80
-ENV WFGEN_VERSION=7.22.5
+ENV WFGEN_VERSION=7.22.6
 
 COPY .\docker-entrypoint.ps1 `
     .\set-state.ps1 `
