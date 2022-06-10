@@ -55,8 +55,8 @@ jobs:
       "8.0":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "8.0"
-        WFGEN_VERSION: 8.0.11
-        ADDITIONAL_TAGS: 8.0, 8.0.11
+        WFGEN_VERSION: 8.0.12
+        ADDITIONAL_TAGS: 8.0, 8.0.12
       "8.1":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "8.1"
