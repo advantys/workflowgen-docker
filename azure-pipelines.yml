@@ -75,8 +75,8 @@ jobs:
       "8.3":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "8.3"
-        WFGEN_VERSION: 8.3.0
-        ADDITIONAL_TAGS: latest, 8, 8.3, 8.3.0
+        WFGEN_VERSION: 8.3.1
+        ADDITIONAL_TAGS: latest, 8, 8.3, 8.3.1
   steps:
   - template: scripts/steps/build-images.yml
   pool:
