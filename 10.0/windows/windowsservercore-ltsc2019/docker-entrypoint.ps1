@@ -56,7 +56,9 @@ $appWfgenAdminUsername                    = Get-WFGEnvVar "WFGEN_ADMIN_USERNAME"
 $wfgenStartService                        = (Get-WFGEnvVar "WFGEN_START_SERVICE" -DefaultValue "all" -TryAzureAppServices).ToLower()
 $genAppSymEncryptKey                      = Get-WFGEnvVar "WFGEN_GEN_APP_SYM_ENCRYPT_KEY" -DefaultValue "Y" -TryAzureAppServices
 $appWfgenDatabaseConnectionString         = Get-WFGEnvVar "WFGEN_DATABASE_CONNECTION_STRING" -TryAzureAppServices
+$appWfgenDatabaseConnectionStringProvider = Get-WFGEnvVar "WFGEN_DATABASE_CONNECTION_STRING_PROVIDER_NAME" -DefaultValue "System.Data.SqlClient" -TryAzureAppServices
 $appWfgenDatabaseReadonlyConnectionString = Get-WFGEnvVar "WFGEN_DATABASE_READONLY_CONNECTION_STRING" -TryAzureAppServices
+$appWfgenDatabaseReadonlyConnectionStringProvider = Get-WFGEnvVar "WFGEN_DATABASE_READONLY_CONNECTION_STRING_PROVIDER_NAME" -DefaultValue "System.Data.SqlClient" -TryAzureAppServices
 $licenseFileName                          = Get-WFGEnvVar "WFGEN_LICENSE_FILE_NAME" -TryAzureAppServices
 $machineKeyValidationKey                  = Get-WFGEnvVar "WFGEN_MACHINE_KEY_VALIDATION_KEY" -TryAzureAppServices
 $machineKeyDecryptionKey                  = Get-WFGEnvVar "WFGEN_MACHINE_KEY_DECRYPTION_KEY" -TryAzureAppServices
@@ -100,21 +102,48 @@ if ($wfgenDependencyCheckEnabled -eq "Y") {
         exit 1
     }
 
-    New-WFGRetryPolicy `
-        -RetryCount $wfgenDependencyCheckRetries `
-        -IntervalMilliseconds $wfgenDependencyCheckInterval `
-        -CatchException ([SqlException]) `
-        -OutVariable RetryPolicy `
-        | Invoke-WFGBlock -Block {
-            [SqlConnection]$connection
+    # Determine the connection type based on provider
+    $isPostgreSQL = $appWfgenDatabaseConnectionStringProvider -eq "Npgsql"
+    
+    if ($isPostgreSQL) {
+        # For PostgreSQL, use Npgsql connection
+        New-WFGRetryPolicy `
+            -RetryCount $wfgenDependencyCheckRetries `
+            -IntervalMilliseconds $wfgenDependencyCheckInterval `
+            -CatchException ([Exception]) `
+            -OutVariable RetryPolicy `
+            | Invoke-WFGBlock -Block {
+                $connection = $null
 
-            try {
-                $connection = [SqlConnection]::new($appWfgenDatabaseConnectionString)
-                $connection.Open()
-            } finally {
-                $connection.Dispose()
-            }
-        } -ErrorVariable PolicyBlockError -ErrorAction SilentlyContinue
+                try {
+                    $npgsqlAssembly = [System.Reflection.Assembly]::LoadFrom("C:\inetpub\wwwroot\wfgen\bin\Npgsql.dll")
+                    $connectionType = $npgsqlAssembly.GetType("Npgsql.NpgsqlConnection")
+                    $connection = [Activator]::CreateInstance($connectionType, $appWfgenDatabaseConnectionString)
+                    $connection.Open()
+                } finally {
+                    if ($connection) {
+                        $connection.Dispose()
+                    }
+                }
+            } -ErrorVariable PolicyBlockError -ErrorAction SilentlyContinue
+    } else {
+        # For SQL Server, use SqlConnection
+        New-WFGRetryPolicy `
+            -RetryCount $wfgenDependencyCheckRetries `
+            -IntervalMilliseconds $wfgenDependencyCheckInterval `
+            -CatchException ([SqlException]) `
+            -OutVariable RetryPolicy `
+            | Invoke-WFGBlock -Block {
+                [SqlConnection]$connection
+
+                try {
+                    $connection = [SqlConnection]::new($appWfgenDatabaseConnectionString)
+                    $connection.Open()
+                } finally {
+                    $connection.Dispose()
+                }
+            } -ErrorVariable PolicyBlockError -ErrorAction SilentlyContinue
+    }
 
     # Handle errors with stack trace
     if ($PolicyBlockError.Count -ge $RetryPolicy.Retry) {
@@ -144,16 +173,24 @@ if ($machineKeyDecryptionKey -and
 #endregion
 
 #region Database sources
+Write-Host "CONFIG: Configuring MainDbSource with provider: $appWfgenDatabaseConnectionStringProvider ... " -NoNewline
 $mainDbSourceNode = $webConfig.SelectSingleNode("//add[@name=""MainDbSource""]")
 $mainDbSourceNode.Attributes["connectionString"].Value = $appWfgenDatabaseConnectionString
+$mainDbSourceNode.Attributes["providerName"].Value = $appWfgenDatabaseConnectionStringProvider
 $webConfig.Save($webConfigPath)
+Write-Host "done" -ForegroundColor Green
 
 if (-not $webConfig.SelectSingleNode("//add[@name=""ReadonlyDbSource""]") -and
     $appWfgenDatabaseReadonlyConnectionString) {
     $addNode = $webConfig.CreateElement("add")
+    $readonlyProviderName = if ($appWfgenDatabaseReadonlyConnectionStringProvider) { 
+        $appWfgenDatabaseReadonlyConnectionStringProvider 
+    } else { 
+        $appWfgenDatabaseConnectionStringProvider 
+    }
 
     $addNode.SetAttribute("name", "ReadonlyDbSource")
-    $addNode.SetAttribute("providerName", "System.Data.SqlClient")
+    $addNode.SetAttribute("providerName", $readonlyProviderName)
     $addNode.SetAttribute("connectionString", $appWfgenDatabaseReadonlyConnectionString)
     $webConfig.
         configuration.
