@@ -7,8 +7,8 @@ SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$Progress
 RUN Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication -Verbose; `
     Enable-WindowsOptionalFeature -Online -FeatureName IIS-BasicAuthentication -Verbose;
 
-ARG NODE_VERSION=18.20.7
-ARG NODE_SHA256=8a1ae839f896a75cfb742a5b82df414e27616db4c1b47dd83a60f329dbf36594
+ARG NODE_VERSION=22.20.0
+ARG NODE_SHA256=d6429513d63a6fba90428d6508a194212ecd7c5fd76923de91306879d28cc3e1
 
 # Install NodeJS
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
