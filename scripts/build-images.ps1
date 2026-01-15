@@ -65,9 +65,9 @@ $tags.AddRange(@(
     $minorVersionTag,
     $minorVersionOnbuildTag
 ))
-docker build -t $completeTag $buildPath
+docker build --isolation=hyperv -t $completeTag $buildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen image."
-docker build -t $onbuildTag $onbuildPath
+docker build --isolation=hyperv -t $onbuildTag $onbuildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen onbuild image."
 docker tag $completeTag $minorVersionTag
 docker tag $onbuildTag $minorVersionOnbuildTag
