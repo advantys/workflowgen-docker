@@ -30,8 +30,12 @@ if ($TemplatesPath) {
 }
 
 $pipelinesDefPath = Join-Path $PSScriptRoot "azure-pipelines.yml"
+$buildVersionPath = Join-Path $PSScriptRoot "BUILD_VERSION.txt"
 $minorVersion = $ToVersion.Substring(0, $ToVersion.LastIndexOf("."))
 $majorVersion = $minorVersion.Substring(0, $minorVersion.LastIndexOf("."))
+
+# Write the target minor version so the pipeline can build only this version
+Set-Content -Path $buildVersionPath -Value $minorVersion -NoNewline
 $minorVersionRegex = $minorVersion -replace "\.", "\."
 $matrix = @{
     WFGEN_VERSION_FOLDER = $minorVersion

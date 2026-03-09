@@ -1,9 +1,11 @@
 steps:
   - task: Docker@2
+    condition: ne(variables.SKIP_BUILD, 'true')
     inputs:
       command: login
       containerRegistry: Docker Hub Advantys
   - task: PowerShell@2
+    condition: ne(variables.SKIP_BUILD, 'true')
     inputs:
       targetType: filePath
       filePath: scripts/build-images.ps1

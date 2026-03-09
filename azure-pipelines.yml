@@ -123,6 +123,24 @@ jobs:
         WFGEN_VERSION: 10.2.0
         ADDITIONAL_TAGS: latest, 10, 10.2, 10.2.0
   steps:
+  - pwsh: |
+      $buildVersionFile = Join-Path $env:BUILD_REPOSITORY_LOCALPATH "BUILD_VERSION.txt"
+
+      if (Test-Path $buildVersionFile) {
+        $targetVersion = (Get-Content $buildVersionFile -Raw).Trim()
+
+        if ($targetVersion -ne $env:WFGEN_VERSION_FOLDER) {
+          Write-Host "Skipping build for $env:WFGEN_VERSION_FOLDER (target: $targetVersion)"
+          Write-Host "##vso[task.setvariable variable=SKIP_BUILD]true"
+        } else {
+          Write-Host "Building version $env:WFGEN_VERSION_FOLDER"
+          Write-Host "##vso[task.setvariable variable=SKIP_BUILD]false"
+        }
+      } else {
+        Write-Host "No BUILD_VERSION.txt found, building all versions"
+        Write-Host "##vso[task.setvariable variable=SKIP_BUILD]false"
+      }
+    displayName: Check if this version should be built
   - template: scripts/steps/build-images.yml
   pool:
     vmImage: windows-2022
