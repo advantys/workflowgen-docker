@@ -115,8 +115,8 @@ jobs:
       "9.5":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "9.5"
-        WFGEN_VERSION: 9.5.0
-        ADDITIONAL_TAGS: 9, 9.5, 9.5.0
+        WFGEN_VERSION: 9.5.1
+        ADDITIONAL_TAGS: 9, 9.5, 9.5.1
       "10.2":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "10.2"
