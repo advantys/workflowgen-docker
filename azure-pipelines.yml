@@ -154,3 +154,34 @@ jobs:
   - template: scripts/steps/build-images.yml
   pool:
     vmImage: windows-2022
+
+- job: Buildltsc2022
+  displayName: Build WorkflowGen's Images (ltsc2022)
+  strategy:
+    matrix:
+      "9.6":
+        WINDOWS_SERVER_VERSION: ltsc2022
+        WFGEN_VERSION_FOLDER: "9.6"
+        WFGEN_VERSION: 9.6.0
+  steps:
+  - pwsh: |
+      $buildVersionFile = Join-Path $env:BUILD_REPOSITORY_LOCALPATH "BUILD_VERSION.txt"
+
+      if (Test-Path $buildVersionFile) {
+        $targetVersion = (Get-Content $buildVersionFile -Raw).Trim()
+
+        if ($targetVersion -ne $env:WFGEN_VERSION_FOLDER) {
+          Write-Host "Skipping build for $env:WFGEN_VERSION_FOLDER (target: $targetVersion)"
+          Write-Host "##vso[task.setvariable variable=SKIP_BUILD]true"
+        } else {
+          Write-Host "Building version $env:WFGEN_VERSION_FOLDER"
+          Write-Host "##vso[task.setvariable variable=SKIP_BUILD]false"
+        }
+      } else {
+        Write-Host "No BUILD_VERSION.txt found, building all versions"
+        Write-Host "##vso[task.setvariable variable=SKIP_BUILD]false"
+      }
+    displayName: Check if this version should be built
+  - template: scripts/steps/build-images.yml
+  pool:
+    vmImage: windows-2022
