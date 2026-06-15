@@ -33,67 +33,15 @@ $pipelinesDefPath = Join-Path $PSScriptRoot "azure-pipelines.yml"
 $buildVersionPath = Join-Path $PSScriptRoot "BUILD_VERSION.txt"
 $minorVersion = $ToVersion.Substring(0, $ToVersion.LastIndexOf("."))
 $majorVersion = $minorVersion.Substring(0, $minorVersion.LastIndexOf("."))
+$windowsServerVersions = @("ltsc2019", "ltsc2022")
+$primaryWindowsServerVersion = "ltsc2019"
 
-# Write the target minor version so the pipeline can build only this version
-Set-Content -Path $buildVersionPath -Value $minorVersion -NoNewline
-$minorVersionRegex = $minorVersion -replace "\.", "\."
-$matrix = @{
-    WFGEN_VERSION_FOLDER = $minorVersion
-    WFGEN_VERSION = $ToVersion
-}
-$repoHasVersion = (Get-ChildItem $PSScriptRoot -Directory `
-    | Where-Object Name -eq $minorVersion `
-    | Measure-Object `
-    | ForEach-Object Count) -as [bool]
+function New-VersionDockerFiles {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$WindowsServerVersion
+    )
 
-if ($repoHasVersion) {
-    Join-Path $PSScriptRoot $minorVersion `
-        | Get-ChildItem -Recurse -File `
-        | Where-Object Name -eq "Dockerfile" `
-        | ForEach-Object {
-            $content = Get-Content $_.FullName -Encoding UTF8
-
-            if ($_.FullName -like "*\onbuild\*") {
-                $content = $content -replace "(?<=advantys/workflowgen:)$minorVersionRegex\.[0-9]+(?=-win-[ltsc2016|ltsc2019])", $ToVersion
-            } else {
-                $content = $content -replace "$minorVersionRegex\.[0-9]+(?=/manual.zip)", $ToVersion
-                $content = $content -replace "(?<=WFGEN_VERSION=)[^\s]+", $ToVersion
-            }
-
-            Set-Content -Path $_.FullName -Value $content -Encoding UTF8
-        }
-
-    $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
-    [array]$newJobs = $pipelinesDef.jobs | ForEach-Object {
-        $currentMatrix = $_.strategy.matrix[$minorVersion]
-        $currentMatrix.WFGEN_VERSION = $ToVersion
-
-        if ($currentMatrix.ADDITIONAL_TAGS) {
-            $currentMatrix.ADDITIONAL_TAGS = $currentMatrix.ADDITIONAL_TAGS.Split(",") `
-                | ForEach-Object { $_.Trim() } `
-                | ForEach-Object {
-                    if ($_ -match "$minorVersionRegex\.[0-9]+") {
-                        return $ToVersion
-                    }
-
-                    return $_
-                } `
-                | ForEach-Object -Begin { $acc = "" } -Process {
-                    if (-not $acc) {
-                        $acc = $_
-                    } else {
-                        $acc = "$acc, $_"
-                    }
-                } -End { $acc }
-        }
-
-        $_.strategy.matrix[$minorVersion] = $currentMatrix
-        return $_
-    }
-
-    $pipelinesDef.jobs = $newJobs
-    $pipelinesDef | ConvertTo-Yaml -OutFile $pipelinesDefPath -Force
-} else {
     if (-not $TemplatesPath) {
         throw [ArgumentException]::new("Parameter TemplatesPath needs to be populated.")
     }
@@ -110,59 +58,66 @@ if ($repoHasVersion) {
         ([io.path]::Combine($TemplatesPath, "workflowgen", "Dockerfile.template"))
     )
 
-    ,"ltsc2019" `
-        | ForEach-Object {
-            $path = [io.path]::Combine($PSScriptRoot, $minorVersion, "windows", "windowsservercore-$_")
+    $path = [io.path]::Combine($PSScriptRoot, $minorVersion, "windows", "windowsservercore-$WindowsServerVersion")
+    $onbuildPath = Join-Path $path "onbuild"
 
-            [pscustomobject]@{
-                Path = $path
-                OnbuildPath = (Join-Path $path "onbuild")
-            }
-        } `
-        | ForEach-Object {
-            New-Item $_.OnbuildPath -ItemType Directory -Force | Out-Null
-            Copy-Item $filesToCopy $_.Path
-            Copy-Item $onbuildDockerfileTemplatePath $_.OnbuildPath
-            Join-Path $_.Path "Dockerfile.template" | Rename-Item -NewName "Dockerfile"
-            Join-Path $_.OnbuildPath "Dockerfile.onbuild.template" | Rename-Item -NewName "Dockerfile"
-        }
+    New-Item $onbuildPath -ItemType Directory -Force | Out-Null
+    Copy-Item $filesToCopy $path
+    Copy-Item $onbuildDockerfileTemplatePath $onbuildPath
+    Join-Path $path "Dockerfile.template" | Rename-Item -NewName "Dockerfile"
+    Join-Path $onbuildPath "Dockerfile.onbuild.template" | Rename-Item -NewName "Dockerfile"
+}
+
+function Update-DockerFiles {
     Join-Path $PSScriptRoot $minorVersion `
         | Get-ChildItem -Recurse -File `
         | Where-Object Name -eq "Dockerfile" `
         | ForEach-Object {
-            $content = Get-Content $_.FullName -Encoding UTF8
+            $content = Get-Content $_.FullName -Raw -Encoding UTF8
             $content = $content -replace "#{WFGEN_VERSION}#", $ToVersion
+            $content = $content -replace "$minorVersionRegex\.[0-9]+(?=/manual.zip)", $ToVersion
+            $content = $content -replace "(?<=WFGEN_VERSION=)[^\s]+", $ToVersion
+            $content = $content -replace "(?<=advantys/workflowgen:)$minorVersionRegex\.[0-9]+(?=-win-ltsc[0-9]+)", $ToVersion
 
-            # Add more conditions when adding more supported versions
-            if ($_.FullName -like "*ltsc2019*") {
-                $content = $content -replace "#{WINDOWS_SERVER_VERSION}#", "ltsc2019"
+            foreach ($windowsServerVersion in $windowsServerVersions) {
+                if ($_.FullName -like "*windowsservercore-$windowsServerVersion*") {
+                    $content = $content -replace "#{WINDOWS_SERVER_VERSION}#", $windowsServerVersion
+                }
             }
 
             Set-Content -Path $_.FullName -Value $content -Encoding UTF8
         }
+}
 
+function Update-PipelineDefinition {
     $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
+    $requiredJobs = $windowsServerVersions | ForEach-Object { "Build$_" }
+    $currentJobs = $pipelinesDef.jobs | ForEach-Object { $_.job }
+
+    foreach ($requiredJob in $requiredJobs) {
+        if ($requiredJob -notin $currentJobs) {
+            throw "Official Docker pipeline is missing the $requiredJob job."
+        }
+    }
 
     [array]$newJobs = $pipelinesDef.jobs | ForEach-Object {
-        $newMatrix = @{
-            WFGEN_VERSION = $ToVersion
-            WFGEN_VERSION_FOLDER = $minorVersion
-            WINDOWS_SERVER_VERSION = $(switch ($_.job) {
-                "Buildltsc2019" { "ltsc2019" }
-            })
+        $windowsServerVersion = switch ($_.job) {
+            "Buildltsc2019" { "ltsc2019" }
+            "Buildltsc2022" { "ltsc2022" }
         }
-        $newMatrixLatest = $newMatrix + @{
-            ADDITIONAL_TAGS = "latest, $majorVersion, $minorVersion, $ToVersion"
-        }
-        $matrix = $_.strategy.matrix
 
+        if (-not $windowsServerVersion) {
+            return $_
+        }
+
+        $matrix = $_.strategy.matrix
         $matrix.GetEnumerator() `
             | Where-Object { $matrix[$_.Key].ADDITIONAL_TAGS } `
             | ForEach-Object {
                 $matrix[$_.Key].ADDITIONAL_TAGS = $matrix[$_.Key].ADDITIONAL_TAGS.Split(",") `
                     | ForEach-Object { $_.Trim() } `
                     | ForEach-Object {
-                        if ($_ -eq "latest" -or $_ -eq $majorVersion -or $_ -eq $minorVersion -or $_ -eq $ToVersion) {
+                        if ($_ -eq "latest" -or $_ -eq $majorVersion -or $_ -eq $minorVersion -or $_ -match "$minorVersionRegex\.[0-9]+") {
                             return
                         }
 
@@ -177,13 +132,37 @@ if ($repoHasVersion) {
                     } -End { $acc }
             }
 
-        $_.strategy.matrix = $matrix
-        $_.strategy.matrix[$minorVersion] = switch ($_.job) {
-            "Buildltsc2019" { $newMatrixLatest }
-            default { $newMatrix }
+        $newMatrix = @{
+            WFGEN_VERSION = $ToVersion
+            WFGEN_VERSION_FOLDER = $minorVersion
+            WINDOWS_SERVER_VERSION = $windowsServerVersion
         }
+
+        if ($windowsServerVersion -eq $primaryWindowsServerVersion) {
+            $newMatrix.ADDITIONAL_TAGS = "latest, $majorVersion, $minorVersion, $ToVersion"
+        }
+
+        $_.strategy.matrix = $matrix
+        $_.strategy.matrix[$minorVersion] = $newMatrix
         return $_
     }
+
     $pipelinesDef.jobs = $newJobs
     $pipelinesDef | ConvertTo-Yaml -OutFile $pipelinesDefPath -Force
 }
+
+# Write the target minor version so the pipeline can build only this version
+Set-Content -Path $buildVersionPath -Value $minorVersion -NoNewline
+$minorVersionRegex = $minorVersion -replace "\.", "\."
+
+$windowsServerVersions `
+    | ForEach-Object {
+        $path = [io.path]::Combine($PSScriptRoot, $minorVersion, "windows", "windowsservercore-$_")
+
+        if (-not (Test-Path $path)) {
+            New-VersionDockerFiles -WindowsServerVersion $_
+        }
+    }
+
+Update-DockerFiles
+Update-PipelineDefinition
