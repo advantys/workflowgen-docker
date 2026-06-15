@@ -91,6 +91,15 @@ function Update-DockerFiles {
 
 function Update-PipelineDefinition {
     $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
+    $requiredJobs = $windowsServerVersions | ForEach-Object { "Build$_" }
+    $currentJobs = $pipelinesDef.jobs | ForEach-Object { $_.job }
+
+    foreach ($requiredJob in $requiredJobs) {
+        if ($requiredJob -notin $currentJobs) {
+            throw "Official Docker pipeline is missing the $requiredJob job."
+        }
+    }
+
     [array]$newJobs = $pipelinesDef.jobs | ForEach-Object {
         $windowsServerVersion = switch ($_.job) {
             "Buildltsc2019" { "ltsc2019" }
