@@ -2,9 +2,9 @@
 .SYNOPSIS
     Updates this official Docker repository with the correct version.
 .DESCRIPTION
-    This script's algorithm uses the existence or not of a folder based on the
-    version provided in order to create a new version directory or update an
-    existing one.
+    This script creates missing version directories from the supplied
+    WorkflowGen Docker templates, then refreshes version values and managed
+    Docker build arguments in existing directories.
 .PARAMETER ToVersion
     The version to which the repository should be updated.
 .PARAMETER TemplatesPath
@@ -69,6 +69,22 @@ function New-VersionDockerFiles {
 }
 
 function Update-DockerFiles {
+    $utf8Bom = New-Object System.Text.UTF8Encoding $true
+
+    if ($TemplatesPath) {
+        $dockerfileTemplatePath = [io.path]::Combine($TemplatesPath, "workflowgen", "Dockerfile.template")
+        $dockerfileTemplate = Get-Content $dockerfileTemplatePath -Raw -Encoding UTF8
+        $nodeVersionMatch = [regex]::Match($dockerfileTemplate, "(?m)^ARG NODE_VERSION=([^\r\n]+)")
+        $nodeSha256Match = [regex]::Match($dockerfileTemplate, "(?m)^ARG NODE_SHA256=([^\r\n]+)")
+
+        if (-not $nodeVersionMatch.Success -or -not $nodeSha256Match.Success) {
+            throw "WorkflowGen Docker template is missing NODE_VERSION or NODE_SHA256."
+        }
+
+        $nodeVersion = $nodeVersionMatch.Groups[1].Value.Trim()
+        $nodeSha256 = $nodeSha256Match.Groups[1].Value.Trim()
+    }
+
     Join-Path $PSScriptRoot $minorVersion `
         | Get-ChildItem -Recurse -File `
         | Where-Object Name -eq "Dockerfile" `
@@ -79,13 +95,19 @@ function Update-DockerFiles {
             $content = $content -replace "(?<=WFGEN_VERSION=)[^\s]+", $ToVersion
             $content = $content -replace "(?<=advantys/workflowgen:)$minorVersionRegex\.[0-9]+(?=-win-ltsc[0-9]+)", $ToVersion
 
+            if ($TemplatesPath) {
+                $content = $content -replace "(?m)^ARG NODE_VERSION=[^\r\n]+", "ARG NODE_VERSION=$nodeVersion"
+                $content = $content -replace "(?m)^ARG NODE_SHA256=[^\r\n]+", "ARG NODE_SHA256=$nodeSha256"
+            }
+
             foreach ($windowsServerVersion in $windowsServerVersions) {
                 if ($_.FullName -like "*windowsservercore-$windowsServerVersion*") {
                     $content = $content -replace "#{WINDOWS_SERVER_VERSION}#", $windowsServerVersion
                 }
             }
 
-            Set-Content -Path $_.FullName -Value $content -Encoding UTF8
+            $content = $content.TrimEnd("`r", "`n") + [Environment]::NewLine
+            [io.file]::WriteAllText($_.FullName, $content, $utf8Bom)
         }
 }
 

@@ -5,6 +5,7 @@ trigger:
 jobs:
 - job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
+  timeoutInMinutes: 120
   strategy:
     matrix:
       "7.15":
