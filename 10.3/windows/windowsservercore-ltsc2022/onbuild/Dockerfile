@@ -1,5 +1,5 @@
 ﻿#escape=`
-FROM advantys/workflowgen:10.3.1-win-ltsc2019
+FROM advantys/workflowgen:10.3.1-win-ltsc2022
 
 # Customization point for WorkflowGen's files, libraries and modules as well as
 # web.config files.
