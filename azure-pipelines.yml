@@ -34,4 +34,6 @@ jobs:
     displayName: Check if this version should be built
   - template: scripts/steps/build-images.yml
   pool:
-    vmImage: windows-2022
+    name: Advantys Build Machines
+    demands:
+    - Docker.Windows.Version -equals ltsc2019
