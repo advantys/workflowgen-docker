@@ -21,19 +21,32 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
     }`
     Write-Host 'Installing Node.js...'; `
     $installLog = 'C:\node-install.log'; `
-    $install = Start-Process -FilePath msiexec.exe `
-        -ArgumentList '/i', 'C:\node.msi', '/qn', '/norestart', '/L*v', $installLog `
-        -PassThru; `
-    if (-not $install.WaitForExit(900000)) { `
-        Stop-Process -Id $install.Id -Force -ErrorAction SilentlyContinue; `
-        if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+    $installJob = Start-Job -ArgumentList 'C:\node.msi', $installLog -ScriptBlock { `
+        param($MsiPath, $LogPath) `
+        $install = Start-Process -FilePath msiexec.exe `
+            -ArgumentList '/i', $MsiPath, '/qn', '/norestart', '/L*v', $LogPath `
+            -Wait -PassThru; `
+        $install.ExitCode; `
+    }; `
+    if (-not (Wait-Job -Job $installJob -Timeout 900)) { `
+        Stop-Job -Job $installJob -ErrorAction SilentlyContinue; `
+        Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue; `
+        if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
         throw 'Node.js installation timed out after 15 minutes.'; `
     } `
-    if ($install.ExitCode -notin 0, 3010) { `
-        if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
-        throw ('Node.js installation failed with exit code {0}.' -f $install.ExitCode); `
+    $installState = $installJob.State; `
+    $installErrors = $installJob.ChildJobs[0].Error | Out-String; `
+    $exitCode = Receive-Job -Job $installJob -ErrorAction SilentlyContinue; `
+    Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue; `
+    if ($installState -ne 'Completed' -or $null -eq $exitCode) { `
+        if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
+        throw ('Node.js installation failed: {0}' -f $installErrors.Trim()); `
     } `
-    Write-Host ('Node.js installation completed with exit code {0}.' -f $install.ExitCode); `
+    if ([int]$exitCode -notin 0, 3010) { `
+        if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
+        throw ('Node.js installation failed with exit code {0}.' -f $exitCode); `
+    } `
+    Write-Host ('Node.js installation completed with exit code {0}.' -f $exitCode); `
     Remove-Item -Path $installLog -Force -ErrorAction SilentlyContinue; `
     Remove-Item -Path C:\node.msi -Force -Verbose
 
@@ -44,19 +57,32 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
     function Install-Msi([string]$Name, [string]$Path) { `
         Write-Host ('Installing {0}...' -f $Name); `
         $installLog = '{0}.log' -f $Path; `
-        $install = Start-Process -FilePath msiexec.exe `
-            -ArgumentList '/i', $Path, '/qn', '/norestart', '/L*v', $installLog `
-            -PassThru; `
-        if (-not $install.WaitForExit(900000)) { `
-            Stop-Process -Id $install.Id -Force -ErrorAction SilentlyContinue; `
-            if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+        $installJob = Start-Job -ArgumentList $Path, $installLog -ScriptBlock { `
+            param($MsiPath, $LogPath) `
+            $install = Start-Process -FilePath msiexec.exe `
+                -ArgumentList '/i', $MsiPath, '/qn', '/norestart', '/L*v', $LogPath `
+                -Wait -PassThru; `
+            $install.ExitCode; `
+        }; `
+        if (-not (Wait-Job -Job $installJob -Timeout 900)) { `
+            Stop-Job -Job $installJob -ErrorAction SilentlyContinue; `
+            Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue; `
+            if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
             throw ('{0} installation timed out after 15 minutes.' -f $Name); `
         } `
-        if ($install.ExitCode -notin 0, 3010) { `
-            if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
-            throw ('{0} installation failed with exit code {1}.' -f $Name, $install.ExitCode); `
+        $installState = $installJob.State; `
+        $installErrors = $installJob.ChildJobs[0].Error | Out-String; `
+        $exitCode = Receive-Job -Job $installJob -ErrorAction SilentlyContinue; `
+        Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue; `
+        if ($installState -ne 'Completed' -or $null -eq $exitCode) { `
+            if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
+            throw ('{0} installation failed: {1}' -f $Name, $installErrors.Trim()); `
         } `
-        Write-Host ('{0} installation completed with exit code {1}.' -f $Name, $install.ExitCode); `
+        if ([int]$exitCode -notin 0, 3010) { `
+            if (Test-Path $installLog) { Get-Content $installLog -Tail 100 -ErrorAction SilentlyContinue; } `
+            throw ('{0} installation failed with exit code {1}.' -f $Name, $exitCode); `
+        } `
+        Write-Host ('{0} installation completed with exit code {1}.' -f $Name, $exitCode); `
         Remove-Item -Path $installLog -Force -ErrorAction SilentlyContinue; `
     } `
     Invoke-WebRequest `
