@@ -6,3 +6,4 @@ FROM advantys/workflowgen:9.6.1-win-ltsc2022
 ONBUILD COPY .\inetpub\wwwroot C:\inetpub\wwwroot
 # Customization point for WorkflowGen's Windows Services
 ONBUILD COPY [ ".\\Program Files\\Advantys\\WorkflowGen", "C:\\Program Files\\Advantys\\WorkflowGen" ]
+
