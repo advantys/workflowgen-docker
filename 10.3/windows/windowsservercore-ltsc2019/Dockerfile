@@ -19,31 +19,61 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
     if ((Get-FileHash C:\node.msi -Algorithm SHA256).Hash -ne $env:NODE_SHA256.ToUpper()) { `
         Write-Error 'Hash string does not match the one of the downloaded package.'; `
     }`
-    Start-Process -FilePath C:\node.msi -Wait -Verbose; `
+    Write-Host 'Installing Node.js...'; `
+    $installLog = 'C:\node-install.log'; `
+    $install = Start-Process -FilePath msiexec.exe `
+        -ArgumentList '/i', 'C:\node.msi', '/qn', '/norestart', '/L*v', $installLog `
+        -PassThru; `
+    if (-not $install.WaitForExit(900000)) { `
+        Stop-Process -Id $install.Id -Force -ErrorAction SilentlyContinue; `
+        if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+        throw 'Node.js installation timed out after 15 minutes.'; `
+    } `
+    if ($install.ExitCode -notin 0, 3010) { `
+        if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+        throw ('Node.js installation failed with exit code {0}.' -f $install.ExitCode); `
+    } `
+    Write-Host ('Node.js installation completed with exit code {0}.' -f $install.ExitCode); `
+    Remove-Item -Path $installLog -Force -ErrorAction SilentlyContinue; `
     Remove-Item -Path C:\node.msi -Force -Verbose
 
 ENV IISNODE_VERSION=0.2.26
 
 # Install iisnode and IISCors
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
+    function Install-Msi([string]$Name, [string]$Path) { `
+        Write-Host ('Installing {0}...' -f $Name); `
+        $installLog = '{0}.log' -f $Path; `
+        $install = Start-Process -FilePath msiexec.exe `
+            -ArgumentList '/i', $Path, '/qn', '/norestart', '/L*v', $installLog `
+            -PassThru; `
+        if (-not $install.WaitForExit(900000)) { `
+            Stop-Process -Id $install.Id -Force -ErrorAction SilentlyContinue; `
+            if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+            throw ('{0} installation timed out after 15 minutes.' -f $Name); `
+        } `
+        if ($install.ExitCode -notin 0, 3010) { `
+            if (Test-Path $installLog) { Get-Content $installLog -Tail 100; } `
+            throw ('{0} installation failed with exit code {1}.' -f $Name, $install.ExitCode); `
+        } `
+        Write-Host ('{0} installation completed with exit code {1}.' -f $Name, $install.ExitCode); `
+        Remove-Item -Path $installLog -Force -ErrorAction SilentlyContinue; `
+    } `
     Invoke-WebRequest `
         -Uri ('https://github.com/azure/iisnode/releases/download/v{0}/iisnode-full-v{0}-x64.msi' -f $env:IISNODE_VERSION) `
         -OutFile C:\iisnode.msi `
         -Verbose; `
-    Start-Process -FilePath C:\iisnode.msi -Wait -Verbose; `
-    Start-Sleep -Seconds 30 -Verbose; `
+    Install-Msi -Name 'iisnode' -Path 'C:\iisnode.msi'; `
     Invoke-WebRequest `
         -Uri 'https://download.microsoft.com/download/2/F/2/2F259559-FC43-4B2C-B53F-DED3E9950912/IISCORS_amd64.msi' `
         -OutFile C:\iiscors.msi `
         -Verbose; `
-    Start-Process -FilePath C:\iiscors.msi -Wait -Verbose; `
-    Start-Sleep -Seconds 30 -Verbose; `
+    Install-Msi -Name 'IIS CORS' -Path 'C:\iiscors.msi'; `
     Invoke-WebRequest `
         -Uri 'https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi' `
         -OutFile C:\rewrite.msi `
         -Verbose; `
-    Start-Process -FilePath C:\rewrite.msi -Wait -Verbose; `
-    Start-Sleep -Seconds 30 -Verbose; `
+    Install-Msi -Name 'IIS URL Rewrite' -Path 'C:\rewrite.msi'; `
     Remove-Item C:\rewrite.msi, C:\iisnode.msi, C:\iiscors.msi -Force -Verbose;
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
