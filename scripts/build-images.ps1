@@ -58,6 +58,15 @@ $minorVersion = $env:WFGEN_VERSION.Substring(0, $env:WFGEN_VERSION.LastIndexOf("
 $minorVersionTag = "$imageName`:$minorVersion-win-$env:WINDOWS_SERVER_VERSION"
 $minorVersionOnbuildTag = "$imageName`:$minorVersion-win-$env:WINDOWS_SERVER_VERSION-onbuild"
 $tags = [ArrayList]::new()
+$dockerIsolation = if ($env:DOCKER_ISOLATION) {
+    $env:DOCKER_ISOLATION
+} else {
+    "hyperv"
+}
+
+if ($dockerIsolation -notin @("process", "hyperv")) {
+    throw "Unsupported Docker isolation mode: $dockerIsolation"
+}
 
 $tags.AddRange(@(
     $completeTag,
@@ -65,9 +74,9 @@ $tags.AddRange(@(
     $minorVersionTag,
     $minorVersionOnbuildTag
 ))
-docker build --isolation=process -t $completeTag $buildPath
+docker build --isolation=$dockerIsolation -t $completeTag $buildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen image."
-docker build --isolation=process -t $onbuildTag $onbuildPath
+docker build --isolation=$dockerIsolation -t $onbuildTag $onbuildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen onbuild image."
 docker tag $completeTag $minorVersionTag
 docker tag $onbuildTag $minorVersionOnbuildTag
