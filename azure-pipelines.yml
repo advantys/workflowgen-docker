@@ -5,6 +5,8 @@ trigger:
 jobs:
 - job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
+  variables:
+    DOCKER_ISOLATION: process
   strategy:
     matrix:
       "7.15":
@@ -153,9 +155,13 @@ jobs:
     displayName: Check if this version should be built
   - template: scripts/steps/build-images.yml
   pool:
-    vmImage: windows-2022
+    name: Advantys Build Machines
+    demands:
+    - Docker.Windows.Version -equals ltsc2019
 - job: Buildltsc2022
   displayName: Build WorkflowGen's Images (ltsc2022)
+  variables:
+    DOCKER_ISOLATION: hyperv
   strategy:
     matrix:
       "9.6":
