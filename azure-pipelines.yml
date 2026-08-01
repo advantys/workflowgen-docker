@@ -6,6 +6,7 @@ jobs:
 - job: Buildltsc2019
   displayName: Build WorkflowGen's Images (ltsc2019)
   timeoutInMinutes: 180
+  condition: eq(variables['WFGEN_VERSION_FOLDER'], '9.6')
   strategy:
     matrix:
       "7.15":
@@ -135,22 +136,6 @@ jobs:
         ADDITIONAL_TAGS: latest, 9, 9.6, 9.6.1
   steps:
   - pwsh: |
-      $targetWindowsServerVersion = $env:TARGET_WINDOWS_SERVER_VERSION
-
-      if (-not $targetWindowsServerVersion -and $env:BUILD_SOURCEVERSIONMESSAGE -match '\[build-(ltsc2019|ltsc2022)-only\]') {
-        $targetWindowsServerVersion = $Matches[1]
-      }
-
-      if ($targetWindowsServerVersion -and $targetWindowsServerVersion -notin @("ltsc2019", "ltsc2022")) {
-        throw "Unsupported target Windows Server version: $targetWindowsServerVersion"
-      }
-
-      if ($targetWindowsServerVersion -and $targetWindowsServerVersion -ne $env:WINDOWS_SERVER_VERSION) {
-        Write-Host "Skipping $env:WINDOWS_SERVER_VERSION build (target: $targetWindowsServerVersion)"
-        Write-Host "##vso[task.setvariable variable=SKIP_BUILD]true"
-        return
-      }
-
       $buildVersionFile = Join-Path $env:BUILD_REPOSITORY_LOCALPATH "BUILD_VERSION.txt"
 
       if (Test-Path $buildVersionFile) {
@@ -173,6 +158,7 @@ jobs:
     vmImage: windows-2022
 - job: Buildltsc2022
   displayName: Build WorkflowGen's Images (ltsc2022)
+  condition: eq(1, 0)
   strategy:
     matrix:
       "9.6":
@@ -181,22 +167,6 @@ jobs:
         WFGEN_VERSION: 9.6.1
   steps:
   - pwsh: |
-      $targetWindowsServerVersion = $env:TARGET_WINDOWS_SERVER_VERSION
-
-      if (-not $targetWindowsServerVersion -and $env:BUILD_SOURCEVERSIONMESSAGE -match '\[build-(ltsc2019|ltsc2022)-only\]') {
-        $targetWindowsServerVersion = $Matches[1]
-      }
-
-      if ($targetWindowsServerVersion -and $targetWindowsServerVersion -notin @("ltsc2019", "ltsc2022")) {
-        throw "Unsupported target Windows Server version: $targetWindowsServerVersion"
-      }
-
-      if ($targetWindowsServerVersion -and $targetWindowsServerVersion -ne $env:WINDOWS_SERVER_VERSION) {
-        Write-Host "Skipping $env:WINDOWS_SERVER_VERSION build (target: $targetWindowsServerVersion)"
-        Write-Host "##vso[task.setvariable variable=SKIP_BUILD]true"
-        return
-      }
-
       $buildVersionFile = Join-Path $env:BUILD_REPOSITORY_LOCALPATH "BUILD_VERSION.txt"
 
       if (Test-Path $buildVersionFile) {
