@@ -33,8 +33,40 @@ $pipelinesDefPath = Join-Path $PSScriptRoot "azure-pipelines.yml"
 $buildVersionPath = Join-Path $PSScriptRoot "BUILD_VERSION.txt"
 $minorVersion = $ToVersion.Substring(0, $ToVersion.LastIndexOf("."))
 $majorVersion = $minorVersion.Substring(0, $minorVersion.LastIndexOf("."))
-$windowsServerVersions = @("ltsc2019", "ltsc2022")
+$targetVersion = [version]$ToVersion
+$minimumLtsc2022MajorVersion = 9
+$windowsServerVersions = @("ltsc2019")
+
+if ([int]$majorVersion -ge $minimumLtsc2022MajorVersion) {
+    $windowsServerVersions += "ltsc2022"
+}
+
 $primaryWindowsServerVersion = "ltsc2019"
+$publishedVersions = @(
+    (Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered).jobs `
+        | Where-Object { $_.strategy -and $_.strategy.matrix } `
+        | ForEach-Object { $_.strategy.matrix.GetEnumerator() } `
+        | Where-Object { $_.Value.WFGEN_VERSION } `
+        | ForEach-Object { [version]$_.Value.WFGEN_VERSION }
+)
+$latestPublishedVersion = $publishedVersions `
+    | Sort-Object -Descending `
+    | Select-Object -First 1
+$latestPublishedInMajor = $publishedVersions `
+    | Where-Object { $_.Major -eq $targetVersion.Major } `
+    | Sort-Object -Descending `
+    | Select-Object -First 1
+$latestPublishedInMinor = $publishedVersions `
+    | Where-Object { $_.Major -eq $targetVersion.Major -and $_.Minor -eq $targetVersion.Minor } `
+    | Sort-Object -Descending `
+    | Select-Object -First 1
+$isLatestVersion = (-not $latestPublishedVersion) -or $targetVersion -ge $latestPublishedVersion
+$isLatestInMajor = (-not $latestPublishedInMajor) -or $targetVersion -ge $latestPublishedInMajor
+$isLatestInMinor = (-not $latestPublishedInMinor) -or $targetVersion -ge $latestPublishedInMinor
+
+if (-not $isLatestInMinor) {
+    throw "WorkflowGen $ToVersion cannot replace newer version $latestPublishedInMinor in the $minorVersion release line."
+}
 
 function New-VersionDockerFiles {
     param (
@@ -128,7 +160,7 @@ function Update-PipelineDefinition {
             "Buildltsc2022" { "ltsc2022" }
         }
 
-        if (-not $windowsServerVersion) {
+        if (-not $windowsServerVersion -or $windowsServerVersion -notin $windowsServerVersions) {
             return $_
         }
 
@@ -139,7 +171,12 @@ function Update-PipelineDefinition {
                 $matrix[$_.Key].ADDITIONAL_TAGS = $matrix[$_.Key].ADDITIONAL_TAGS.Split(",") `
                     | ForEach-Object { $_.Trim() } `
                     | ForEach-Object {
-                        if ($_ -eq "latest" -or $_ -eq $majorVersion -or $_ -eq $minorVersion -or $_ -match "$minorVersionRegex\.[0-9]+") {
+                        $removeTag = ($isLatestVersion -and $_ -eq "latest") `
+                            -or ($isLatestInMajor -and $_ -eq $majorVersion) `
+                            -or ($isLatestInMinor -and $_ -eq $minorVersion) `
+                            -or $_ -match "$minorVersionRegex\.[0-9]+"
+
+                        if ($removeTag) {
                             return
                         }
 
@@ -161,7 +198,22 @@ function Update-PipelineDefinition {
         }
 
         if ($windowsServerVersion -eq $primaryWindowsServerVersion) {
-            $newMatrix.ADDITIONAL_TAGS = "latest, $majorVersion, $minorVersion, $ToVersion"
+            $additionalTags = @()
+
+            if ($isLatestVersion) {
+                $additionalTags += "latest"
+            }
+
+            if ($isLatestInMajor) {
+                $additionalTags += $majorVersion
+            }
+
+            if ($isLatestInMinor) {
+                $additionalTags += $minorVersion
+            }
+
+            $additionalTags += $ToVersion
+            $newMatrix.ADDITIONAL_TAGS = $additionalTags -join ", "
         }
 
         $_.strategy.matrix = $matrix
