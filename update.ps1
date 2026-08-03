@@ -33,7 +33,12 @@ $pipelinesDefPath = Join-Path $PSScriptRoot "azure-pipelines.yml"
 $buildVersionPath = Join-Path $PSScriptRoot "BUILD_VERSION.txt"
 $minorVersion = $ToVersion.Substring(0, $ToVersion.LastIndexOf("."))
 $majorVersion = $minorVersion.Substring(0, $minorVersion.LastIndexOf("."))
-$windowsServerVersions = @("ltsc2019", "ltsc2022")
+$windowsServerVersions = @("ltsc2019")
+
+if ([int]$majorVersion -ge 9) {
+    $windowsServerVersions += "ltsc2022"
+}
+
 $primaryWindowsServerVersion = "ltsc2019"
 
 function New-VersionDockerFiles {
@@ -115,6 +120,13 @@ function Update-PipelineDefinition {
     $pipelinesDef = Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered
     $requiredJobs = $windowsServerVersions | ForEach-Object { "Build$_" }
     $currentJobs = $pipelinesDef.jobs | ForEach-Object { $_.job }
+    $latestPublishedVersion = $pipelinesDef.jobs `
+        | Where-Object { $_.strategy -and $_.strategy.matrix } `
+        | ForEach-Object { $_.strategy.matrix.GetEnumerator() } `
+        | ForEach-Object { [version]$_.Value.WFGEN_VERSION } `
+        | Sort-Object -Descending `
+        | Select-Object -First 1
+    $isLatestVersion = [version]$ToVersion -ge $latestPublishedVersion
 
     foreach ($requiredJob in $requiredJobs) {
         if ($requiredJob -notin $currentJobs) {
@@ -128,7 +140,7 @@ function Update-PipelineDefinition {
             "Buildltsc2022" { "ltsc2022" }
         }
 
-        if (-not $windowsServerVersion) {
+        if (-not $windowsServerVersion -or $windowsServerVersion -notin $windowsServerVersions) {
             return $_
         }
 
@@ -139,7 +151,7 @@ function Update-PipelineDefinition {
                 $matrix[$_.Key].ADDITIONAL_TAGS = $matrix[$_.Key].ADDITIONAL_TAGS.Split(",") `
                     | ForEach-Object { $_.Trim() } `
                     | ForEach-Object {
-                        if ($_ -eq "latest" -or $_ -eq $majorVersion -or $_ -eq $minorVersion -or $_ -match "$minorVersionRegex\.[0-9]+") {
+                        if (($isLatestVersion -and $_ -eq "latest") -or $_ -eq $majorVersion -or $_ -eq $minorVersion -or $_ -match "$minorVersionRegex\.[0-9]+") {
                             return
                         }
 
@@ -161,7 +173,11 @@ function Update-PipelineDefinition {
         }
 
         if ($windowsServerVersion -eq $primaryWindowsServerVersion) {
-            $newMatrix.ADDITIONAL_TAGS = "latest, $majorVersion, $minorVersion, $ToVersion"
+            $newMatrix.ADDITIONAL_TAGS = if ($isLatestVersion) {
+                "latest, $majorVersion, $minorVersion, $ToVersion"
+            } else {
+                "$majorVersion, $minorVersion, $ToVersion"
+            }
         }
 
         $_.strategy.matrix = $matrix
