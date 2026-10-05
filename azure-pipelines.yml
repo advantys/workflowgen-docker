@@ -143,7 +143,7 @@ jobs:
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "8.6"
         WFGEN_VERSION: 8.6.0
-        ADDITIONAL_TAGS: 8, 8.6, 8.6.0
+        ADDITIONAL_TAGS: 8.6, 8.6.0
       "9.7":
         WINDOWS_SERVER_VERSION: ltsc2019
         WFGEN_VERSION_FOLDER: "9.7"
@@ -154,6 +154,11 @@ jobs:
         WFGEN_VERSION_FOLDER: "10.4"
         WFGEN_VERSION: 10.4.0
         ADDITIONAL_TAGS: latest, 10, 10.4, 10.4.0
+      "8.7":
+        WINDOWS_SERVER_VERSION: ltsc2019
+        WFGEN_VERSION_FOLDER: "8.7"
+        WFGEN_VERSION: 8.7.0
+        ADDITIONAL_TAGS: 8, 8.7, 8.7.0
   steps:
   - pwsh: |
       $buildVersionFile = Join-Path $env:BUILD_REPOSITORY_LOCALPATH "BUILD_VERSION.txt"
