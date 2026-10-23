@@ -2,13 +2,17 @@
 FROM mcr.microsoft.com/dotnet/framework/aspnet:4.8-windowsservercore-ltsc2022
 
 SHELL [ "powershell", "-Command", "$ErrorActionPreference = 'Stop';", "$ProgressPreference = 'SilentlyContinue';" ]
+ARG CERTIFICATE_REFRESH=9.8.1
+COPY .\update-windows-certificates.ps1 C:\update-windows-certificates.ps1
+RUN Write-Host ('Certificate refresh: {0}' -f $env:CERTIFICATE_REFRESH); `
+    & C:\update-windows-certificates.ps1
 
 # Install required authentication methods
 RUN Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication -Verbose; `
     Enable-WindowsOptionalFeature -Online -FeatureName IIS-BasicAuthentication -Verbose;
 
-ARG NODE_VERSION=24.21.0
-ARG NODE_SHA256=bb0eaee134f9357f22aea915ee793343e627aefc1e66488164bac6915bce2cac
+ARG NODE_VERSION=24.22.1
+ARG NODE_SHA256=3bda4baf1ee709b33cf920dd633106ddb23951e322bff9c03ec9f64ab8981b01
 
 # Install NodeJS
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
@@ -48,7 +52,7 @@ RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tl
 
 RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
     Invoke-WebRequest `
-        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/9.8.0/manual.zip' `
+        -Uri 'https://github.com/advantys/workflowgen-releases/releases/download/9.8.1/manual.zip' `
         -OutFile C:\manual.zip; `
     Write-Host 'Extracting manual.zip...'; `
     New-Item C:\manual -ItemType Directory | Out-Null; `
@@ -134,7 +138,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 `
 #     "C:\\wfgen\\data" `
 # ]
 EXPOSE 80
-ENV WFGEN_VERSION=9.8.0
+ENV WFGEN_VERSION=9.8.1
 
 COPY .\docker-entrypoint.ps1 `
     .\set-state.ps1 `
