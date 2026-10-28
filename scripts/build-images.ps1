@@ -49,6 +49,24 @@ $buildPath = [io.path]::Combine(
     "windows",
     "windowsservercore-$env:WINDOWS_SERVER_VERSION"
 )
+# BEGIN WFGEN V10.5 managed builder
+if (([string]$env:WFGEN_VERSION -match '^\s*0*10\.0*5(?:[^0-9]|$)') -or
+    ([string]$env:WFGEN_VERSION_FOLDER -match '^\s*0*10\.0*5(?:[^0-9]|$)')) {
+    # Either field can select this line; a mismatch must never fall through to
+    # the legacy publisher. Noncanonical related values are rejected too.
+    if ($env:WFGEN_VERSION -cnotmatch '^10\.5\.[0-9]+$' -or
+        $env:WFGEN_VERSION_FOLDER -cne '10.5' -or
+        $env:WINDOWS_SERVER_VERSION -cnotmatch '^ltsc(2019|2022)$') {
+        throw 'V10.5 production version, folder and Windows platform must match the managed builder.'
+    }
+    $managedBuilderPath = Join-Path $buildPath 'build-official-images.ps1'
+    if (-not (Test-Path -LiteralPath $managedBuilderPath -PathType Leaf)) {
+        throw 'V10.5 requires its managed production image builder.'
+    }
+    try { & $managedBuilderPath -BuildPath $buildPath } catch { throw }
+    return
+}
+# END WFGEN V10.5 managed builder
 $onbuildPath = Join-Path $buildPath "onbuild"
 $imageName = "advantys/workflowgen"
 $tag = "$env:WFGEN_VERSION-win-$env:WINDOWS_SERVER_VERSION"
