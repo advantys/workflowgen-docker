@@ -87,12 +87,17 @@ compatibility with existing release callers; existing matrix entries without
 the policy retain their stable behavior.
 
 For a complete 10.5.x application publication, the WorkflowGen maintenance branch
-must also include the reviewed release-policy shared-builder allowlist update in
+must also include the reviewed release-policy shared-builder compatibility update in
 `build/docker/workflowgen/install-official-security-builder.ps1`, its matching
-fixture and compatibility tests. A branch created from the older 10.5 source
+fixture and compatibility tests, including recognition of both exact 10.5/10.6
+managed dispatches. A branch created from the older 10.5 source
 without that update rejects this shared builder before staging. The offline
 updater test covers alias selection, not that complete maintenance-release path;
 do not bypass the managed builder's source-integrity guard.
+
+The WorkflowGen production export installs its managed publisher for 10.5 and
+10.6. It verifies the application and ONBUILD images offline before any tag or
+push, while the explicit release policy still controls stable alias promotion.
 
 Each minor line has one mutable build context. Version-only mode therefore refuses
 to replace an existing stable minor context, and numeric downgrades within a minor
