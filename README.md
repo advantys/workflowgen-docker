@@ -80,10 +80,19 @@ When a later release is approved as stable, select promotion explicitly:
 ./update.ps1 -ToVersion 10.6.1 -TemplatesPath <WorkflowGen-Docker-templates> -PromoteFloatingTags true
 ```
 
-Eligible stable aliases then move using the normal version ordering. Version-only
-entries do not prevent an intervening stable backport from updating its eligible
-aliases. The default is `true` for compatibility with existing release callers;
-existing matrix entries without the policy retain their stable behavior.
+Eligible stable aliases then move using the normal version ordering. In the
+updater's alias selection, version-only entries do not prevent an intervening
+stable backport from updating its eligible aliases. The default is `true` for
+compatibility with existing release callers; existing matrix entries without
+the policy retain their stable behavior.
+
+For a complete 10.5.x application publication, the WorkflowGen maintenance branch
+must also include the reviewed release-policy shared-builder allowlist update in
+`build/docker/workflowgen/install-official-security-builder.ps1`, its matching
+fixture and compatibility tests. A branch created from the older 10.5 source
+without that update rejects this shared builder before staging. The offline
+updater test covers alias selection, not that complete maintenance-release path;
+do not bypass the managed builder's source-integrity guard.
 
 Each minor line has one mutable build context. Version-only mode therefore refuses
 to replace an existing stable minor context, and numeric downgrades within a minor
