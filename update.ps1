@@ -10,6 +10,10 @@
 .PARAMETER TemplatesPath
     Path to the template folder. This is concretely the docker folder in
     WorkflowGen's source repository.
+.PARAMETER PromoteFloatingTags
+    Set to false for a version-only evaluation release. Existing floating
+    aliases remain owned by their stable release. Default true preserves the
+    stable release workflow; this choice is persisted in the build matrix.
 #>
 #requires -Version 5.1
 [CmdletBinding()]
@@ -20,9 +24,12 @@ param (
     [string]$ToVersion,
     [Parameter(Mandatory=$false)]
     [ValidateNotNullOrEmpty()]
-    [string]$TemplatesPath
+    [string]$TemplatesPath,
+    [ValidateSet("true", "false")]
+    [string]$PromoteFloatingTags = "true"
 )
 
+$ErrorActionPreference = 'Stop'
 Import-Module powershell-yaml
 
 if ($TemplatesPath) {
@@ -34,6 +41,7 @@ $buildVersionPath = Join-Path $PSScriptRoot "BUILD_VERSION.txt"
 $minorVersion = $ToVersion.Substring(0, $ToVersion.LastIndexOf("."))
 $majorVersion = $minorVersion.Substring(0, $minorVersion.LastIndexOf("."))
 $targetVersion = [version]$ToVersion
+$promoteAliases = $PromoteFloatingTags -eq 'true'
 $minimumLtsc2022MajorVersion = 9
 $windowsServerVersions = @("ltsc2019")
 
@@ -42,17 +50,26 @@ if ([int]$majorVersion -ge $minimumLtsc2022MajorVersion) {
 }
 
 $primaryWindowsServerVersion = "ltsc2019"
-$publishedVersions = @(
+$publishedEntries = @(
     (Get-Content $pipelinesDefPath -Raw -Encoding UTF8 | ConvertFrom-Yaml -Ordered).jobs `
         | Where-Object { $_.strategy -and $_.strategy.matrix } `
         | ForEach-Object { $_.strategy.matrix.GetEnumerator() } `
-        | Where-Object { $_.Value.WFGEN_VERSION } `
-        | ForEach-Object { [version]$_.Value.WFGEN_VERSION }
+        | Where-Object { $_.Value.WFGEN_VERSION }
 )
-$latestPublishedVersion = $publishedVersions `
+foreach ($entry in $publishedEntries) {
+    $policy = [string]$entry.Value.WFGEN_PROMOTE_FLOATING_TAGS
+    if ($policy -and $policy -notin @('true', 'false')) {
+        throw "Invalid floating-tag policy in the existing build matrix."
+    }
+}
+$publishedVersions = @($publishedEntries | ForEach-Object { [version]$_.Value.WFGEN_VERSION })
+$stableVersions = @($publishedEntries `
+    | Where-Object { [string]$_.Value.WFGEN_PROMOTE_FLOATING_TAGS -ne 'false' } `
+    | ForEach-Object { [version]$_.Value.WFGEN_VERSION })
+$latestPublishedVersion = $stableVersions `
     | Sort-Object -Descending `
     | Select-Object -First 1
-$latestPublishedInMajor = $publishedVersions `
+$latestPublishedInMajor = $stableVersions `
     | Where-Object { $_.Major -eq $targetVersion.Major } `
     | Sort-Object -Descending `
     | Select-Object -First 1
@@ -60,12 +77,17 @@ $latestPublishedInMinor = $publishedVersions `
     | Where-Object { $_.Major -eq $targetVersion.Major -and $_.Minor -eq $targetVersion.Minor } `
     | Sort-Object -Descending `
     | Select-Object -First 1
-$isLatestVersion = (-not $latestPublishedVersion) -or $targetVersion -ge $latestPublishedVersion
-$isLatestInMajor = (-not $latestPublishedInMajor) -or $targetVersion -ge $latestPublishedInMajor
+$isLatestVersion = $promoteAliases -and ((-not $latestPublishedVersion) -or $targetVersion -ge $latestPublishedVersion)
+$isLatestInMajor = $promoteAliases -and ((-not $latestPublishedInMajor) -or $targetVersion -ge $latestPublishedInMajor)
 $isLatestInMinor = (-not $latestPublishedInMinor) -or $targetVersion -ge $latestPublishedInMinor
 
 if (-not $isLatestInMinor) {
     throw "WorkflowGen $ToVersion cannot replace newer version $latestPublishedInMinor in the $minorVersion release line."
+}
+if (-not $promoteAliases -and @($stableVersions | Where-Object {
+    $_.Major -eq $targetVersion.Major -and $_.Minor -eq $targetVersion.Minor
+}).Count -gt 0) {
+    throw 'A version-only release must use a minor release line without an existing stable build context.'
 }
 
 function New-VersionDockerFiles {
@@ -173,7 +195,7 @@ function Update-PipelineDefinition {
                     | ForEach-Object {
                         $removeTag = ($isLatestVersion -and $_ -eq "latest") `
                             -or ($isLatestInMajor -and $_ -eq $majorVersion) `
-                            -or ($isLatestInMinor -and $_ -eq $minorVersion) `
+                            -or ($promoteAliases -and $isLatestInMinor -and $_ -eq $minorVersion) `
                             -or $_ -match "$minorVersionRegex\.[0-9]+"
 
                         if ($removeTag) {
@@ -195,6 +217,7 @@ function Update-PipelineDefinition {
             WFGEN_VERSION = $ToVersion
             WFGEN_VERSION_FOLDER = $minorVersion
             WINDOWS_SERVER_VERSION = $windowsServerVersion
+            WFGEN_PROMOTE_FLOATING_TAGS = $PromoteFloatingTags.ToLowerInvariant()
         }
 
         if ($windowsServerVersion -eq $primaryWindowsServerVersion) {
@@ -208,7 +231,7 @@ function Update-PipelineDefinition {
                 $additionalTags += $majorVersion
             }
 
-            if ($isLatestInMinor) {
+            if ($promoteAliases -and $isLatestInMinor) {
                 $additionalTags += $minorVersion
             }
 

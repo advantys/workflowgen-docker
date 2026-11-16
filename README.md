@@ -57,6 +57,43 @@ Over time, there will be more versions of WorkflowGen, more base images and
 more platforms available.
 
 # Build a specific version
+## Release alias policy
+
+The updater accepts an explicit publication policy. For a version-only evaluation
+release in a new minor line, use:
+
+```powershell
+./update.ps1 -ToVersion 10.6.0 -TemplatesPath <WorkflowGen-Docker-templates> -PromoteFloatingTags false
+```
+
+This preserves the existing stable owners of `latest`, major and minor aliases.
+The generated matrix records `WFGEN_PROMOTE_FLOATING_TAGS: false` for both Windows
+platforms. The publisher emits only these tags for the example release:
+
+- `10.6.0` and `10.6.0-onbuild` (LTSC 2019).
+- `10.6.0-win-ltsc2019` and `10.6.0-win-ltsc2019-onbuild`.
+- `10.6.0-win-ltsc2022` and `10.6.0-win-ltsc2022-onbuild`.
+
+When a later release is approved as stable, select promotion explicitly:
+
+```powershell
+./update.ps1 -ToVersion 10.6.1 -TemplatesPath <WorkflowGen-Docker-templates> -PromoteFloatingTags true
+```
+
+Eligible stable aliases then move using the normal version ordering. Version-only
+entries do not prevent an intervening stable backport from updating its eligible
+aliases. The default is `true` for compatibility with existing release callers;
+existing matrix entries without the policy retain their stable behavior.
+
+Each minor line has one mutable build context. Version-only mode therefore refuses
+to replace an existing stable minor context, and numeric downgrades within a minor
+remain rejected. The existing V10.5 managed security builder is unchanged;
+version-only mode cannot bypass it and fails before Docker is invoked.
+
+Validate the updater and publisher offline with
+`./scripts/tests/test-release-tag-policy.ps1`. Its temporary fixtures and mocked
+Docker function do not build, tag or push real images.
+
 ## Prerequisites
 
 * You need Docker installed on your machine in order to build an image.

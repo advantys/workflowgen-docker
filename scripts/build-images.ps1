@@ -43,6 +43,30 @@ function Test-Error {
     }
 }
 
+# An absent policy is a historical stable entry. A version-only entry must
+# reject contradictory aliases before any Docker command can run.
+$floatingTagPolicy = [string]$env:WFGEN_PROMOTE_FLOATING_TAGS
+if ($floatingTagPolicy -and $floatingTagPolicy -notin @('true', 'false')) {
+    throw 'WFGEN_PROMOTE_FLOATING_TAGS must be true or false.'
+}
+$promoteAliases = $floatingTagPolicy -ne 'false'
+if (-not $promoteAliases) {
+    if ($env:WFGEN_VERSION -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or
+        $env:WFGEN_VERSION_FOLDER -cne ([version]$env:WFGEN_VERSION).ToString(2) -or
+        $env:WINDOWS_SERVER_VERSION -cnotmatch '^ltsc(2019|2022)$') {
+        throw 'Version-only publishing requires a complete numeric version and matching Windows build context.'
+    }
+    if (([string]$env:WFGEN_VERSION -match '^\s*0*10\.0*5(?:[^0-9]|$)') -or
+        ([string]$env:WFGEN_VERSION_FOLDER -match '^\s*0*10\.0*5(?:[^0-9]|$)')) {
+        throw 'Version-only publishing is not supported by the existing V10.5 managed builder.'
+    }
+    foreach ($additionalTag in @($env:ADDITIONAL_TAGS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+        if ($additionalTag -cne $env:WFGEN_VERSION -or $env:WINDOWS_SERVER_VERSION -cne 'ltsc2019') {
+            throw 'Version-only publishing permits only the exact WorkflowGen version as an additional tag.'
+        }
+    }
+}
+
 $buildPath = [io.path]::Combine(
     $env:BUILD_REPOSITORY_LOCALPATH,
     $env:WFGEN_VERSION_FOLDER,
@@ -88,16 +112,19 @@ if ($dockerIsolation -notin @("process", "hyperv")) {
 
 $tags.AddRange(@(
     $completeTag,
-    $onbuildTag,
-    $minorVersionTag,
-    $minorVersionOnbuildTag
+    $onbuildTag
 ))
+if ($promoteAliases) {
+    $tags.AddRange(@($minorVersionTag, $minorVersionOnbuildTag))
+}
 docker build --isolation=$dockerIsolation -t $completeTag $buildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen image."
 docker build --isolation=$dockerIsolation -t $onbuildTag $onbuildPath
 Test-Error -ErrorMessage "Failed to build WorkflowGen onbuild image."
-docker tag $completeTag $minorVersionTag
-docker tag $onbuildTag $minorVersionOnbuildTag
+if ($promoteAliases) {
+    docker tag $completeTag $minorVersionTag
+    docker tag $onbuildTag $minorVersionOnbuildTag
+}
 
 if ($env:ADDITIONAL_TAGS) {
     $env:ADDITIONAL_TAGS -split "," `
